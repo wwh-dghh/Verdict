@@ -11,6 +11,8 @@ A CLI tool for validating AI-generated code quality through static analysis, sec
 [![Docs](https://img.shields.io/badge/docs-rs-blue.svg)](https://docs.rs/verdict)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
 
+🇨🇳 [中文文档](README_CN.md)
+
 ## Demo
 
 ```
