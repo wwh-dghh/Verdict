@@ -1,4 +1,5 @@
-    //! Configuration loading — reads from config file and CLI args.
+
+//! Configuration loading — reads from config file and CLI args.
 
 use crate::models::*;
 use anyhow::{Context, Result};

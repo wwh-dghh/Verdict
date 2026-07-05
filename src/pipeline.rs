@@ -42,7 +42,9 @@ impl PipelineBuilder {
     }
 
     pub fn build(self) -> Pipeline {
-        Pipeline { stages: self.stages }
+        Pipeline {
+            stages: self.stages,
+        }
     }
 }
 
@@ -70,9 +72,10 @@ impl Pipeline {
         for stage in &self.stages {
             let stage_start = Instant::now();
             let input = std::mem::take(&mut results);
-            results = stage.execute(&input).await.with_context(|| {
-                format!("stage '{}' failed", stage.name())
-            })?;
+            results = stage
+                .execute(&input)
+                .await
+                .with_context(|| format!("stage '{}' failed", stage.name()))?;
             let elapsed = stage_start.elapsed();
             tracing::info!("stage '{}' completed in {:?}", stage.name(), elapsed);
         }
@@ -114,7 +117,10 @@ struct PreprocessStage {
 
 impl PreprocessStage {
     fn new(targets: Vec<PathBuf>, ignore_patterns: Vec<String>) -> Self {
-        Self { targets, ignore_patterns }
+        Self {
+            targets,
+            ignore_patterns,
+        }
     }
 }
 
@@ -187,10 +193,14 @@ impl Stage for AggregateStage {
         let mut results = Vec::new();
 
         for r in input {
-            let errors = r.findings.iter()
+            let errors = r
+                .findings
+                .iter()
                 .filter(|f| f.severity == Severity::Error)
                 .count() as f64;
-            let warnings = r.findings.iter()
+            let warnings = r
+                .findings
+                .iter()
                 .filter(|f| f.severity == Severity::Warning)
                 .count() as f64;
             let total = r.findings.len() as f64;
@@ -203,7 +213,9 @@ impl Stage for AggregateStage {
             let code_quality = code_quality.clamp(0.0, 100.0);
 
             // Security defaults to 100 if no security findings
-            let security = if r.findings.iter()
+            let security = if r
+                .findings
+                .iter()
                 .any(|f| matches!(f.category, Category::Security))
             {
                 50.0

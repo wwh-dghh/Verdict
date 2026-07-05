@@ -185,25 +185,22 @@ mod tests {
 
     #[test]
     fn test_sql_injection_concatenation() {
-        let matches = patterns_match(
-            "db.execute(\"SELECT * FROM users WHERE name = '\" + username + \"'\")"
-        );
+        let matches =
+            patterns_match("db.execute(\"SELECT * FROM users WHERE name = '\" + username + \"'\")");
         assert!(matches.contains(&"SEC001".to_string()));
     }
 
     #[test]
     fn test_sql_injection_fstring() {
-        let matches = patterns_match(
-            "db.execute(f'SELECT * FROM users WHERE name = \"{username}\"')"
-        );
+        let matches =
+            patterns_match("db.execute(f'SELECT * FROM users WHERE name = \"{username}\"')");
         assert!(matches.contains(&"SEC001".to_string()));
     }
 
     #[test]
     fn test_no_sql_injection_safe() {
-        let matches = patterns_match(
-            "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))"
-        );
+        let matches =
+            patterns_match("cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))");
         assert!(!matches.contains(&"SEC001".to_string()));
     }
 
@@ -221,17 +218,13 @@ mod tests {
 
     #[test]
     fn test_hardcoded_api_key() {
-        let matches = patterns_match(
-            "api_key = \"sk-abc123def456ghi789jkl012mno345\""
-        );
+        let matches = patterns_match("api_key = \"sk-abc123def456ghi789jkl012mno345\"");
         assert!(matches.contains(&"SEC003".to_string()));
     }
 
     #[test]
     fn test_hardcoded_password() {
-        let matches = patterns_match(
-            "password = \"super_secret_password_123\""
-        );
+        let matches = patterns_match("password = \"super_secret_password_123\"");
         assert!(matches.contains(&"SEC003".to_string()));
     }
 
@@ -267,17 +260,13 @@ mod tests {
 
     #[test]
     fn test_command_injection() {
-        let matches = patterns_match(
-            "subprocess.run('echo ' + user_input, shell=True)"
-        );
+        let matches = patterns_match("subprocess.run('echo ' + user_input, shell=True)");
         assert!(matches.contains(&"SEC007".to_string()));
     }
 
     #[test]
     fn test_no_command_injection_safe() {
-        let matches = patterns_match(
-            "subprocess.run(['echo', 'hello'])"
-        );
+        let matches = patterns_match("subprocess.run(['echo', 'hello'])");
         assert!(!matches.contains(&"SEC007".to_string()));
     }
 

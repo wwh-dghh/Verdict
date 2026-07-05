@@ -149,11 +149,7 @@ impl QualityScores {
     ) -> Self {
         let weights = [0.35, 0.25, 0.20, 0.10, 0.10];
         let scores = [security, code_quality, performance, test_coverage, ai_risk];
-        let overall: f64 = weights
-            .iter()
-            .zip(scores.iter())
-            .map(|(w, s)| w * s)
-            .sum();
+        let overall: f64 = weights.iter().zip(scores.iter()).map(|(w, s)| w * s).sum();
         Self {
             security,
             code_quality,
@@ -196,9 +192,15 @@ pub struct Thresholds {
     pub overall: f64,
 }
 
-fn default_security_threshold() -> f64 { 70.0 }
-fn default_quality_threshold() -> f64 { 60.0 }
-fn default_overall_threshold() -> f64 { 50.0 }
+fn default_security_threshold() -> f64 {
+    70.0
+}
+fn default_quality_threshold() -> f64 {
+    60.0
+}
+fn default_overall_threshold() -> f64 {
+    50.0
+}
 
 impl Default for Thresholds {
     fn default() -> Self {
@@ -252,8 +254,12 @@ pub struct LLMConfig {
     pub max_tokens: usize,
 }
 
-fn default_true() -> bool { true }
-fn default_max_tokens() -> usize { 500 }
+fn default_true() -> bool {
+    true
+}
+fn default_max_tokens() -> usize {
+    500
+}
 
 impl Default for Config {
     fn default() -> Self {
@@ -386,10 +392,7 @@ mod tests {
 
     #[test]
     fn test_language_detection_unknown() {
-        assert_eq!(
-            Language::from_path(&PathBuf::from("readme.txt")),
-            None
-        );
+        assert_eq!(Language::from_path(&PathBuf::from("readme.txt")), None);
     }
 
     #[test]

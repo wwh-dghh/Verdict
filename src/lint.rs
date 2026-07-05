@@ -24,10 +24,7 @@ impl Stage for LintStage {
 
         for adapter in &self.linters {
             for r in &mut results {
-                let findings = adapter
-                    .lint_file(&r.path)
-                    .await
-                    .unwrap_or_default();
+                let findings = adapter.lint_file(&r.path).await.unwrap_or_default();
                 r.findings.extend(findings);
             }
         }

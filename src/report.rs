@@ -41,16 +41,24 @@ impl Reporter {
         // Header
         let sep = "═".repeat(60);
         buf.push_str(&format!("\n{sep}"));
-        buf.push_str("\n  Verdict — AI Code Verification Report".to_string().as_str());
+        buf.push_str(
+            "\n  Verdict — AI Code Verification Report"
+                .to_string()
+                .as_str(),
+        );
         buf.push_str(&format!("\n{sep}\n"));
 
         // Summary
         let total = result.total_findings;
-        let errors = result.results.iter()
+        let errors = result
+            .results
+            .iter()
             .flat_map(|r| &r.findings)
             .filter(|f| f.severity == Severity::Error)
             .count();
-        let warnings = result.results.iter()
+        let warnings = result
+            .results
+            .iter()
             .flat_map(|r| &r.findings)
             .filter(|f| f.severity == Severity::Warning)
             .count();
@@ -86,7 +94,11 @@ impl Reporter {
                 buf.push_str(&format!(" {overall_str}"));
 
                 if scores.security < 70.0 {
-                    buf.push_str(&format!(" (security:{:.0}!)", scores.security).red().to_string());
+                    buf.push_str(
+                        &format!(" (security:{:.0}!)", scores.security)
+                            .red()
+                            .to_string(),
+                    );
                 }
             }
         }
@@ -104,9 +116,7 @@ impl Reporter {
                         Severity::Info => format!(" [{}] ", "INFO".dimmed()),
                     };
 
-                    let line_str = f.line
-                        .map(|l| format!(":{}", l))
-                        .unwrap_or_default();
+                    let line_str = f.line.map(|l| format!(":{}", l)).unwrap_or_default();
 
                     buf.push_str(&format!(
                         "  {}{}{} {} {}\n",
@@ -132,8 +142,9 @@ impl Reporter {
     fn render_sarif(&self, result: &PipelineResult) -> String {
         let mut sarif = serde_json::Map::new();
         sarif.insert("version".into(), "2.1.0".into());
-        sarif.insert("runs".into(), serde_json::Value::Array(vec![
-            serde_json::json!({
+        sarif.insert(
+            "runs".into(),
+            serde_json::Value::Array(vec![serde_json::json!({
                 "tool": {
                     "driver": {
                         "name": "verdict",
@@ -143,8 +154,8 @@ impl Reporter {
                     }
                 },
                 "results": self.collect_results(result)
-            })
-        ]));
+            })]),
+        );
 
         serde_json::to_string_pretty(&sarif).unwrap_or_default()
     }
@@ -156,12 +167,15 @@ impl Reporter {
                 codes.insert(&f.code);
             }
         }
-        codes.iter().map(|code| {
-            serde_json::json!({
-                "id": code,
-                "shortDescription": {"text": code}
+        codes
+            .iter()
+            .map(|code| {
+                serde_json::json!({
+                    "id": code,
+                    "shortDescription": {"text": code}
+                })
             })
-        }).collect()
+            .collect()
     }
 
     fn collect_results(&self, result: &PipelineResult) -> Vec<serde_json::Value> {

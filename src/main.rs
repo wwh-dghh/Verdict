@@ -221,11 +221,27 @@ fn parse_format(s: &str) -> models::OutputFormat {
 }
 
 const RULES: &[(&str, &str, &str)] = &[
-    ("SEC001", "Potential SQL injection", "String concatenation in queries"),
+    (
+        "SEC001",
+        "Potential SQL injection",
+        "String concatenation in queries",
+    ),
     ("SEC002", "Potential XSS", "innerHTML, document.write"),
-    ("SEC003", "Hardcoded secrets", "API keys, passwords, tokens in source"),
+    (
+        "SEC003",
+        "Hardcoded secrets",
+        "API keys, passwords, tokens in source",
+    ),
     ("SEC004", "Weak cryptography", "MD5, DES algorithms"),
-    ("SEC005", "Debug logging leaks", "Print statements with sensitive data"),
+    (
+        "SEC005",
+        "Debug logging leaks",
+        "Print statements with sensitive data",
+    ),
     ("SEC006", "Unsafe eval", "eval() usage"),
-    ("SEC007", "Command injection", "String concat in subprocess/system calls"),
+    (
+        "SEC007",
+        "Command injection",
+        "String concat in subprocess/system calls",
+    ),
 ];
