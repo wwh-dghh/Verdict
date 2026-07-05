@@ -1,0 +1,26 @@
+# Build artifacts
+/target
+/target-release
+
+# Config files
+.verdict.yaml
+.verdict.yml
+.verdict.json
+
+# Test data golden files
+testdata/*.golden
+testdata/*.expected
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

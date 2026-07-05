@@ -1,0 +1,427 @@
+//! Core data types and models for the Verdict AI code verification tool.
+
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+/// Programming language support
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Language {
+    Python,
+    JavaScript,
+    TypeScript,
+    Go,
+    Rust,
+}
+
+impl Language {
+    /// Detect language from file extension
+    pub fn from_path(path: &Path) -> Option<Self> {
+        let ext = path.extension()?.to_str()?;
+        match ext {
+            "py" => Some(Language::Python),
+            "js" | "jsx" => Some(Language::JavaScript),
+            "ts" | "tsx" => Some(Language::TypeScript),
+            "go" => Some(Language::Go),
+            "rs" => Some(Language::Rust),
+            _ => None,
+        }
+    }
+
+    /// Default linter for this language
+    #[expect(dead_code)]
+    pub fn default_linter(&self) -> LinterKind {
+        match self {
+            Language::Python => LinterKind::Ruff,
+            Language::JavaScript | Language::TypeScript => LinterKind::Biome,
+            Language::Go => LinterKind::GolangCiLint,
+            Language::Rust => LinterKind::Clippy,
+        }
+    }
+
+    /// File extensions for this language
+    #[expect(dead_code)]
+    pub fn extensions(&self) -> &'static [&'static str] {
+        match self {
+            Language::Python => &["py"],
+            Language::JavaScript => &["js", "jsx"],
+            Language::TypeScript => &["ts", "tsx"],
+            Language::Go => &["go"],
+            Language::Rust => &["rs"],
+        }
+    }
+}
+
+/// Built-in linter backends
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinterKind {
+    Ruff,
+    Biome,
+    Oxlint,
+    GolangCiLint,
+    Clippy,
+}
+
+/// Severity of a finding
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    Error,
+    Warning,
+    Info,
+}
+
+/// Category of a finding
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Category {
+    /// Code style and quality issues
+    Lint,
+    /// Security vulnerabilities
+    Security,
+    /// Performance concerns
+    Performance,
+    /// Test coverage gaps
+    Testing,
+    /// AI-specific code quality issues
+    AiSemantic,
+    /// Architecture / best practice violations
+    BestPractice,
+}
+
+/// A single finding discovered during analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Finding {
+    pub category: Category,
+    pub severity: Severity,
+    pub code: String,
+    pub message: String,
+    pub file: PathBuf,
+    pub line: Option<usize>,
+    pub column: Option<usize>,
+    pub suggestion: Option<String>,
+    /// AI-generated explanation (when LLM-as-Judge is enabled)
+    pub ai_explanation: Option<String>,
+}
+
+impl Finding {
+    pub fn new(
+        category: Category,
+        severity: Severity,
+        code: impl Into<String>,
+        message: impl Into<String>,
+        file: PathBuf,
+        line: Option<usize>,
+    ) -> Self {
+        Self {
+            category,
+            severity,
+            code: code.into(),
+            message: message.into(),
+            file,
+            line,
+            column: None,
+            suggestion: None,
+            ai_explanation: None,
+        }
+    }
+}
+
+/// Multi-dimensional quality scores for analyzed code
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityScores {
+    pub security: f64,
+    pub code_quality: f64,
+    pub performance: f64,
+    pub test_coverage: f64,
+    pub ai_risk: f64,
+    pub overall: f64,
+}
+
+impl QualityScores {
+    pub fn new(
+        security: f64,
+        code_quality: f64,
+        performance: f64,
+        test_coverage: f64,
+        ai_risk: f64,
+    ) -> Self {
+        let weights = [0.35, 0.25, 0.20, 0.10, 0.10];
+        let scores = [security, code_quality, performance, test_coverage, ai_risk];
+        let overall: f64 = weights
+            .iter()
+            .zip(scores.iter())
+            .map(|(w, s)| w * s)
+            .sum();
+        Self {
+            security,
+            code_quality,
+            performance,
+            test_coverage,
+            ai_risk,
+            overall,
+        }
+    }
+}
+
+/// Analysis result for a single file or directory
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalysisResult {
+    pub path: PathBuf,
+    pub language: Option<Language>,
+    pub findings: Vec<Finding>,
+    pub scores: Option<QualityScores>,
+    pub duration_ms: u64,
+}
+
+/// Output format for reports
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputFormat {
+    #[default]
+    Terminal,
+    Json,
+    Sarif,
+}
+
+/// Configuration thresholds for CI/CD gating
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Thresholds {
+    #[serde(default = "default_security_threshold")]
+    pub security: f64,
+    #[serde(default = "default_quality_threshold")]
+    pub code_quality: f64,
+    #[serde(default = "default_overall_threshold")]
+    pub overall: f64,
+}
+
+fn default_security_threshold() -> f64 { 70.0 }
+fn default_quality_threshold() -> f64 { 60.0 }
+fn default_overall_threshold() -> f64 { 50.0 }
+
+impl Default for Thresholds {
+    fn default() -> Self {
+        Self {
+            security: 70.0,
+            code_quality: 60.0,
+            overall: 50.0,
+        }
+    }
+}
+
+/// Main configuration for a verdict run
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    /// Directories or files to analyze
+    pub targets: Vec<PathBuf>,
+    /// Languages to include (empty = auto-detect)
+    #[serde(default)]
+    pub languages: Vec<Language>,
+    /// Which linters to enable
+    #[serde(default)]
+    pub linters: Vec<LinterKind>,
+    /// Whether to run security scanning
+    #[serde(default = "default_true")]
+    pub security_scan: bool,
+    /// Whether to run AI semantic review
+    #[serde(default)]
+    pub ai_review: bool,
+    /// LLM provider configuration
+    pub llm: Option<LLMConfig>,
+    /// Output format
+    #[serde(default)]
+    pub output: OutputFormat,
+    /// CI/CD thresholds
+    #[serde(default)]
+    pub thresholds: Thresholds,
+    /// Whether to use git diff mode
+    #[serde(default)]
+    pub diff_mode: bool,
+    /// Patterns to ignore
+    #[serde(default)]
+    pub ignore: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LLMConfig {
+    pub provider: String,
+    pub api_key: String,
+    pub model: String,
+    #[serde(default = "default_max_tokens")]
+    pub max_tokens: usize,
+}
+
+fn default_true() -> bool { true }
+fn default_max_tokens() -> usize { 500 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            targets: vec![],
+            languages: vec![],
+            linters: vec![],
+            security_scan: true,
+            ai_review: false,
+            llm: None,
+            output: OutputFormat::default(),
+            thresholds: Thresholds::default(),
+            diff_mode: false,
+            ignore: vec![
+                ".git".into(),
+                "node_modules".into(),
+                "__pycache__".into(),
+                "target".into(),
+                "venv".into(),
+            ],
+        }
+    }
+}
+
+/// Analysis pipeline stage
+#[derive(Debug, Clone, Serialize)]
+pub enum PipelineStage {
+    #[expect(dead_code)]
+    Preprocess,
+    #[expect(dead_code)]
+    Lint,
+    #[expect(dead_code)]
+    Security,
+    #[expect(dead_code)]
+    Semantic,
+    Aggregate,
+    #[expect(dead_code)]
+    Report,
+}
+
+/// Overall pipeline execution result
+#[derive(Debug, Clone, Serialize)]
+pub struct PipelineResult {
+    pub stages_completed: Vec<PipelineStage>,
+    pub results: Vec<AnalysisResult>,
+    pub total_findings: usize,
+    pub failed_thresholds: Vec<String>,
+    pub exit_code: u8,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_finding_creation() {
+        let finding = Finding::new(
+            Category::Security,
+            Severity::Error,
+            "SEC001",
+            "SQL injection detected",
+            PathBuf::from("test.py"),
+            Some(10),
+        );
+        assert_eq!(finding.code, "SEC001");
+        assert_eq!(finding.severity, Severity::Error);
+        assert_eq!(finding.line, Some(10));
+        assert!(finding.suggestion.is_none());
+    }
+
+    #[test]
+    fn test_quality_scores_weighted_average() {
+        let scores = QualityScores::new(100.0, 80.0, 60.0, 40.0, 20.0);
+        // 0.35*100 + 0.25*80 + 0.20*60 + 0.10*40 + 0.10*20 = 35 + 20 + 12 + 4 + 2 = 73
+        assert!((scores.overall - 73.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_quality_scores_perfect() {
+        let scores = QualityScores::new(100.0, 100.0, 100.0, 100.0, 100.0);
+        assert!((scores.overall - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_quality_scores_worst() {
+        let scores = QualityScores::new(0.0, 0.0, 0.0, 0.0, 0.0);
+        assert!((scores.overall - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_language_detection_python() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("main.py")),
+            Some(Language::Python)
+        );
+    }
+
+    #[test]
+    fn test_language_detection_js() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("app.js")),
+            Some(Language::JavaScript)
+        );
+    }
+
+    #[test]
+    fn test_language_detection_ts() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("app.ts")),
+            Some(Language::TypeScript)
+        );
+    }
+
+    #[test]
+    fn test_language_detection_go() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("main.go")),
+            Some(Language::Go)
+        );
+    }
+
+    #[test]
+    fn test_language_detection_rust() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("main.rs")),
+            Some(Language::Rust)
+        );
+    }
+
+    #[test]
+    fn test_language_detection_unknown() {
+        assert_eq!(
+            Language::from_path(&PathBuf::from("readme.txt")),
+            None
+        );
+    }
+
+    #[test]
+    fn test_output_format_default() {
+        let format: OutputFormat = Default::default();
+        assert_eq!(format, OutputFormat::Terminal);
+    }
+
+    #[test]
+    fn test_thresholds_default() {
+        let thresholds = Thresholds::default();
+        assert_eq!(thresholds.security, 70.0);
+        assert_eq!(thresholds.code_quality, 60.0);
+        assert_eq!(thresholds.overall, 50.0);
+    }
+
+    #[test]
+    fn test_severity_ordering() {
+        assert!(Severity::Error < Severity::Warning);
+        assert!(Severity::Warning < Severity::Info);
+    }
+
+    #[test]
+    fn test_config_default_targets_empty() {
+        let config = Config::default();
+        assert!(config.targets.is_empty());
+    }
+
+    #[test]
+    fn test_config_default_ignore_patterns() {
+        let config = Config::default();
+        assert!(config.ignore.contains(&".git".to_string()));
+        assert!(config.ignore.contains(&"node_modules".to_string()));
+    }
+}

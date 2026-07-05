@@ -1,0 +1,67 @@
+[package]
+name = "verdict"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/wwh-dghh/verdict"
+description = "AI code, human confidence. A CLI tool for validating AI-generated code quality."
+license = "MIT"
+
+[dependencies]
+# CLI framework
+clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+async-trait = "0.1"
+
+# File system & paths
+walkdir = "2.5"
+ignore = "0.4"
+pathdiff = "0.2"
+
+# Terminal output
+colored = "3.0"
+indicatif = "0.17"
+console = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# SARIF output (manual JSON rendering)
+# sarif-om = "1.0"
+# sarif-writer = "1.0"
+
+# Security patterns
+regex = "1.11"
+
+# Cache
+moka = { version = "0.12", features = ["future"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Config
+dirs = "6.0"
+
+# Find executables
+which = "6.0"
+
+# Cross-platform
+tempfile = "3.14"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"

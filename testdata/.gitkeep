@@ -1,0 +1,2 @@
+# Test fixtures for Verdict security scanner.
+# These files contain intentional security issues to verify detection.
