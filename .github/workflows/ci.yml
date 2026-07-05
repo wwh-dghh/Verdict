@@ -39,8 +39,8 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all
-      - name: Check formatting
-        run: git diff --exit-code -- '*.rs'
+      - name: Verify formatting
+        run: git diff --quiet HEAD -- '*.rs' || (echo "::warning::Formatting was auto-fixed. Please run 'cargo fmt' locally." && exit 1)
 
   build:
     name: Build (Linux, macOS, Windows)
