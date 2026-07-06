@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Plugin marketplace
-- WASM plugin runtime (for advanced plugins)
 - Team collaboration features
 
 ### Changed
@@ -17,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Nothing yet
+
+## [0.2.2] - 2026-07-06
+
+### Added
+- WASM plugin runtime for advanced custom security rules
+  - Uses wasmtime for sandboxed execution
+  - Loads `.wasm` files from plugin directories
+  - Integrated into security scanning pipeline
+  - Gracefully handles missing/invalid WASM modules
+- 4 new unit tests for WASM plugin system
 
 ## [0.2.1] - 2026-07-06
 

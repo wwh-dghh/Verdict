@@ -12,6 +12,7 @@ mod plugin;
 mod report;
 mod security;
 mod semantic;
+mod wasm_plugin;
 
 use clap::{Parser, Subcommand};
 use std::fs;

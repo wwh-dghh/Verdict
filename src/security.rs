@@ -2,6 +2,7 @@
 
 use crate::models::*;
 use crate::plugin::PluginLoader;
+use crate::wasm_plugin::WasmPluginLoader;
 use anyhow::Result;
 use regex::Regex;
 use std::fs;
@@ -148,6 +149,7 @@ fn builtin_rules() -> Vec<SecurityPattern> {
 /// Stage that runs security pattern matching
 pub struct SecurityStage {
     patterns: Vec<SecurityPattern>,
+    wasm_plugins: Vec<crate::wasm_plugin::WasmPlugin>,
 }
 
 #[async_trait::async_trait]
@@ -209,6 +211,22 @@ impl Stage for SecurityStage {
                         });
                     }
                 }
+
+                // Execute WASM plugins
+                for plugin in &self.wasm_plugins {
+                    match plugin.execute_rules(&text, &r.path.to_string_lossy()) {
+                        Ok(findings) => {
+                            r.findings.extend(findings);
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "WASM plugin execution failed for {}: {}",
+                                r.path.display(),
+                                e
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -260,7 +278,20 @@ impl SecurityStage {
             }
         }
 
-        Self { patterns }
+        // Load WASM plugins
+        let wasm_loader = WasmPluginLoader::new();
+        let wasm_plugins = wasm_loader.load_all().unwrap_or_default();
+
+        tracing::info!(
+            "security stage initialized: {} regex patterns, {} WASM plugins",
+            patterns.len(),
+            wasm_plugins.len()
+        );
+
+        Self {
+            patterns,
+            wasm_plugins,
+        }
     }
 }
 

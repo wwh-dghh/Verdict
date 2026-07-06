@@ -252,8 +252,8 @@ VS Code Extension
 - [x] VS Code extension (`vscode-verdict/`)
 - [x] Go (golangci-lint) and Rust (clippy) linter support
 - [x] GitHub Actions integration (`.github/actions/verdict`)
+- [x] WASM plugin runtime for advanced custom rules
 - [ ] Plugin marketplace
-- [ ] WASM plugin runtime (for advanced plugins)
 - [ ] Team collaboration features
 
 ## Contributing

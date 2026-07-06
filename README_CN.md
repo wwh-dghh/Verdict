@@ -2,6 +2,15 @@
 
 **AI 代码，人类信心。**
 
+<!-- Badges -->
+[![CI](https://github.com/wwh-dghh/verdict/actions/workflows/ci.yml/badge.svg)](https://github.com/wwh-dghh/verdict/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![crates.io](https://img.shields.io/crates/v/verdict.svg)](https://crates.io/crates/verdict)
+[![Docs](https://img.shields.io/badge/docs-rs-blue.svg)](https://docs.rs/verdict)
+[![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org)
+
+🇺🇸 [English](README.md)
+
 一个通过静态分析、安全扫描和 AI 驱动的语义审查来验证 AI 生成代码质量的 CLI 工具。
 
 ## 为什么需要 Verdict？
@@ -157,7 +166,7 @@ $ verdict check ./src
 
 ## 贡献指南
 
-欢迎贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详细指南。
+欢迎贡献！请参阅 [CONTRIBUTING_CN.md](CONTRIBUTING_CN.md) 了解详细指南。
 
 ## 许可证
 

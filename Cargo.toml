@@ -59,7 +59,10 @@ dirs = "6.0"
 # Find executables
 which = "6.0"
 
-# Cross-platform
+# WASM plugin runtime
+wasmtime = { version = "24", features = ["component-model"] }
+wit-bindgen = "0.30"
+wasmtime-wasi = "24"
 tempfile = "3.14"
 
 [dev-dependencies]
