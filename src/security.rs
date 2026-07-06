@@ -1,6 +1,7 @@
 //! Security scanning module — detects common vulnerability patterns.
 
 use crate::models::*;
+use crate::plugin::PluginLoader;
 use anyhow::Result;
 use regex::Regex;
 use std::fs;
@@ -14,6 +15,9 @@ struct SecurityPattern {
     code: String,
     message: String,
     suggestion: Option<String>,
+    languages: Vec<String>,
+    include: Vec<String>,
+    exclude: Vec<String>,
 }
 
 impl SecurityPattern {
@@ -30,7 +34,24 @@ impl SecurityPattern {
             code: code.into(),
             message: message.into(),
             suggestion: suggestion.map(String::from),
+            languages: Vec::new(),
+            include: Vec::new(),
+            exclude: Vec::new(),
         }
+    }
+}
+
+/// Simple glob-like pattern matching (supports * and **)
+fn glob_match(pattern: &str, text: &str) -> bool {
+    // Convert glob pattern to regex
+    let regex_pattern = pattern
+        .replace(".", "\\.")
+        .replace("*", ".*")
+        .replace("?", ".");
+    if let Ok(re) = Regex::new(&format!("^{}$", regex_pattern)) {
+        re.is_match(text)
+    } else {
+        false
     }
 }
 
@@ -142,6 +163,38 @@ impl Stage for SecurityStage {
             let content = fs::read_to_string(&r.path).ok();
             if let Some(text) = content {
                 for pattern in &self.patterns {
+                    // Check language filter
+                    if !pattern.languages.is_empty() {
+                        if let Some(lang) = r.language {
+                            let lang_str = format!("{:?}", lang).to_lowercase();
+                            if !pattern
+                                .languages
+                                .iter()
+                                .any(|l| l.to_lowercase() == lang_str)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
+                    // Check file include/exclude patterns
+                    if !pattern.include.is_empty() {
+                        let path_str = r.path.to_string_lossy();
+                        let matches_include =
+                            pattern.include.iter().any(|p| glob_match(p, &path_str));
+                        if !matches_include {
+                            continue;
+                        }
+                    }
+                    if !pattern.exclude.is_empty() {
+                        let path_str = r.path.to_string_lossy();
+                        let matches_exclude =
+                            pattern.exclude.iter().any(|p| glob_match(p, &path_str));
+                        if matches_exclude {
+                            continue;
+                        }
+                    }
+
                     if pattern.regex.is_match(&text) {
                         r.findings.push(Finding {
                             category: Category::Security,
@@ -165,9 +218,49 @@ impl Stage for SecurityStage {
 
 impl SecurityStage {
     pub fn new() -> Self {
-        Self {
-            patterns: builtin_rules(),
+        let mut patterns = builtin_rules();
+
+        // Load plugin rules
+        let loader = PluginLoader::new();
+        match loader.load_all() {
+            Ok(plugins) => {
+                for plugin in plugins {
+                    for rule in plugin.rules {
+                        match Regex::new(&rule.pattern) {
+                            Ok(regex) => {
+                                let severity = match rule.severity.to_lowercase().as_str() {
+                                    "error" => Severity::Error,
+                                    "warning" => Severity::Warning,
+                                    _ => Severity::Info,
+                                };
+                                patterns.push(SecurityPattern {
+                                    regex,
+                                    severity,
+                                    code: rule.code,
+                                    message: rule.message,
+                                    suggestion: rule.suggestion,
+                                    languages: rule.languages,
+                                    include: rule.include,
+                                    exclude: rule.exclude,
+                                });
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "invalid regex in plugin rule '{}': {}",
+                                    rule.code,
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("no plugins loaded: {}", e);
+            }
         }
+
+        Self { patterns }
     }
 }
 

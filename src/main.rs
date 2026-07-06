@@ -8,6 +8,7 @@ mod git_diff;
 mod lint;
 mod models;
 mod pipeline;
+mod plugin;
 mod report;
 mod security;
 mod semantic;
@@ -202,6 +203,17 @@ ignore:
 
     println!("{}", template.trim());
     println!("\nSave this as .verdict.yaml in your project root");
+
+    // Also create plugins directory with example
+    let plugins_dir = std::path::Path::new("plugins");
+    if !plugins_dir.exists() {
+        std::fs::create_dir_all(plugins_dir)?;
+        let example = plugin::generate_template();
+        std::fs::write(plugins_dir.join("example-rules.json"), &example)?;
+        println!("\nCreated plugins/ directory with example-rules.json");
+        println!("Edit or add .json files to plugins/ to define custom security rules");
+    }
+
     Ok(())
 }
 
