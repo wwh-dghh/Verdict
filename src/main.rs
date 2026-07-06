@@ -14,6 +14,7 @@ mod security;
 mod semantic;
 
 use clap::{Parser, Subcommand};
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -56,6 +57,12 @@ enum Commands {
     Init,
     /// Show available security rules
     Rules,
+    /// Set up git pre-commit hook
+    Hooks {
+        /// Remove the hook
+        #[arg(long)]
+        uninstall: bool,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Some(Commands::Init) => cmd_init(),
         Some(Commands::Rules) => cmd_rules(),
+        Some(Commands::Hooks { uninstall }) => cmd_hooks(uninstall),
         Some(Commands::Check {
             targets,
             format,
@@ -223,7 +231,112 @@ fn cmd_rules() -> anyhow::Result<()> {
         println!("  {} — {} ({})", code, name, desc);
     }
     println!("\nLint rules are provided by the underlying linters (Ruff, Biome, etc.)");
+    println!("\nCustom rules: place .json files in ~/.verdict/plugins/ or ./plugins/");
+    println!("Run 'verdict hooks' to set up git pre-commit hook");
     Ok(())
+}
+
+fn cmd_hooks(uninstall: bool) -> anyhow::Result<()> {
+    // Find git hooks directory
+    let hooks_dir = find_git_hooks_dir()?;
+
+    if uninstall {
+        let hook_path = hooks_dir.join("pre-commit");
+        if hook_path.exists() {
+            let content = fs::read_to_string(&hook_path)?;
+            if content.contains("# verdict-precommit") {
+                fs::remove_file(&hook_path)?;
+                println!("✓ Removed verdict pre-commit hook");
+            } else {
+                println!("⚠ Pre-commit hook exists but was not created by verdict");
+                println!("  Remove manually: {}", hook_path.display());
+            }
+        } else {
+            println!("No pre-commit hook found");
+        }
+        return Ok(());
+    }
+
+    // Install hook
+    let hook_path = hooks_dir.join("pre-commit");
+    if hook_path.exists() {
+        let content = fs::read_to_string(&hook_path)?;
+        if content.contains("# verdict-precommit") {
+            // Update existing verdict hook
+            fs::write(&hook_path, generate_hook_script())?;
+            println!("✓ Updated verdict pre-commit hook");
+            return Ok(());
+        } else {
+            anyhow::bail!(
+                "Pre-commit hook already exists at {}\n\
+                 Remove it first or use --uninstall if it was created by verdict",
+                hook_path.display()
+            );
+        }
+    }
+
+    // Create hooks directory if it doesn't exist
+    fs::create_dir_all(&hooks_dir)?;
+
+    fs::write(&hook_path, generate_hook_script())?;
+
+    // Make executable on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(0o755);
+        std::fs::set_permissions(&hook_path, perms)?;
+    }
+
+    println!(
+        "✓ Installed verdict pre-commit hook at {}",
+        hook_path.display()
+    );
+    println!("  Runs 'verdict check --diff' before each commit");
+    println!("  To skip: git commit --no-verify");
+    Ok(())
+}
+
+fn find_git_hooks_dir() -> anyhow::Result<PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()?;
+
+    if !output.status.success() {
+        anyhow::bail!("not a git repository");
+    }
+
+    let root = String::from_utf8(output.stdout)?.trim().to_string();
+    Ok(PathBuf::from(root).join(".git").join("hooks"))
+}
+
+fn generate_hook_script() -> String {
+    // Use raw string with proper shebang for the platform
+    if cfg!(target_os = "windows") {
+        r#"@echo off
+# verdict-precommit
+verdict check --diff --format terminal
+if %errorlevel% neq 0 (
+    echo.
+    echo Verdict found issues. Fix them before committing.
+    echo To skip: git commit --no-verify
+    exit /b 1
+)
+"#
+        .to_string()
+    } else {
+        r#"#!/bin/sh
+# verdict-precommit
+verdict check --diff --format terminal
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "Verdict found issues. Fix them before committing."
+    echo "To skip: git commit --no-verify"
+    exit 1
+fi
+"#
+        .to_string()
+    }
 }
 
 fn parse_format(s: &str) -> models::OutputFormat {
