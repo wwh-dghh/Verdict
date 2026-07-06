@@ -1,0 +1,95 @@
+{
+  "name": "verdict",
+  "displayName": "Verdict — AI Code Verification",
+  "description": "Validate AI-generated code quality directly in VS Code",
+  "version": "0.1.0",
+  "publisher": "verdict-tool",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wwh-dghh/Verdict"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "verdict",
+    "ai",
+    "code-quality",
+    "security",
+    "linter",
+    "static-analysis"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:go",
+    "onLanguage:rust"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "verdict.check",
+        "title": "Verdict: Check Workspace"
+      },
+      {
+        "command": "verdict.checkFile",
+        "title": "Verdict: Check Current File"
+      },
+      {
+        "command": "verdict.rules",
+        "title": "Verdict: Show Security Rules"
+      }
+    ],
+    "configuration": {
+      "title": "Verdict",
+      "properties": {
+        "verdict.enableOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run verdict check on file save"
+        },
+        "verdict.path": {
+          "type": "string",
+          "default": "verdict",
+          "description": "Path to the verdict binary"
+        },
+        "verdict.securityScan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable security scanning"
+        },
+        "verdict.diffMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Only analyze git-changed files"
+        },
+        "verdict.ignore": {
+          "type": "array",
+          "default": [".git", "node_modules", "__pycache__", "target", "venv"],
+          "description": "Patterns to ignore"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}
