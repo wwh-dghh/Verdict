@@ -4,6 +4,7 @@
 //! static analysis, security scanning, and AI-powered semantic review.
 
 mod config;
+mod git_diff;
 mod lint;
 mod models;
 mod pipeline;
@@ -126,6 +127,7 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
     tracing::info!("starting analysis of {} target(s)", config.targets.len());
 
     let mut builder = pipeline::PipelineBuilder::new();
+    builder = builder.with_diff_mode(config.diff_mode);
     builder = builder.with_lint();
     if config.security_scan {
         builder = builder.with_security();

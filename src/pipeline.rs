@@ -16,11 +16,20 @@ pub trait Stage: Send + Sync {
 /// Builder that assembles and runs the full pipeline
 pub struct PipelineBuilder {
     stages: Vec<Box<dyn Stage>>,
+    diff_mode: bool,
 }
 
 impl PipelineBuilder {
     pub fn new() -> Self {
-        Self { stages: vec![] }
+        Self {
+            stages: vec![],
+            diff_mode: false,
+        }
+    }
+
+    pub fn with_diff_mode(mut self, enabled: bool) -> Self {
+        self.diff_mode = enabled;
+        self
     }
 
     pub fn with_lint(mut self) -> Self {
@@ -44,6 +53,7 @@ impl PipelineBuilder {
     pub fn build(self) -> Pipeline {
         Pipeline {
             stages: self.stages,
+            diff_mode: self.diff_mode,
         }
     }
 }
@@ -51,6 +61,7 @@ impl PipelineBuilder {
 /// The analysis pipeline — runs stages sequentially
 pub struct Pipeline {
     stages: Vec<Box<dyn Stage>>,
+    diff_mode: bool,
 }
 
 impl Pipeline {
@@ -62,7 +73,7 @@ impl Pipeline {
     ) -> Result<PipelineResult> {
         let start = Instant::now();
         let mut stages_completed = Vec::new();
-        let preprocess = PreprocessStage::new(targets, ignore_patterns);
+        let preprocess = PreprocessStage::new(targets, ignore_patterns, self.diff_mode);
         let mut results: Vec<AnalysisResult> = preprocess
             .execute(&[])
             .await
@@ -113,13 +124,15 @@ impl Pipeline {
 struct PreprocessStage {
     targets: Vec<PathBuf>,
     ignore_patterns: Vec<String>,
+    diff_mode: bool,
 }
 
 impl PreprocessStage {
-    fn new(targets: Vec<PathBuf>, ignore_patterns: Vec<String>) -> Self {
+    fn new(targets: Vec<PathBuf>, ignore_patterns: Vec<String>, diff_mode: bool) -> Self {
         Self {
             targets,
             ignore_patterns,
+            diff_mode,
         }
     }
 }
@@ -135,6 +148,54 @@ impl Stage for PreprocessStage {
         let ignore_set: std::collections::HashSet<&str> =
             self.ignore_patterns.iter().map(|s| s.as_str()).collect();
 
+        // In diff mode, only analyze files changed in git
+        if self.diff_mode {
+            let mut changed_files = Vec::new();
+            for target in &self.targets {
+                let root = if target.is_dir() {
+                    crate::git_diff::find_repo_root(target).unwrap_or_else(|_| target.clone())
+                } else {
+                    target.parent().unwrap_or(target).to_path_buf()
+                };
+
+                if crate::git_diff::is_git_repo(&root) {
+                    let opts = crate::git_diff::DiffOptions::default();
+                    match crate::git_diff::discover_changed_files(&root, &opts) {
+                        Ok(files) => {
+                            for f in files {
+                                let full_path = if f.is_relative() { root.join(&f) } else { f };
+                                if full_path.exists() && !changed_files.contains(&full_path) {
+                                    changed_files.push(full_path);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("git diff failed, falling back to full scan: {}", e);
+                        }
+                    }
+                }
+            }
+
+            for path in changed_files {
+                if let Some(lang) = Language::from_path(&path) {
+                    results.push(AnalysisResult {
+                        path,
+                        language: Some(lang),
+                        findings: Vec::new(),
+                        scores: None,
+                        duration_ms: 0,
+                    });
+                }
+            }
+
+            tracing::info!(
+                "preprocess (diff mode): found {} changed files",
+                results.len()
+            );
+            return Ok(results);
+        }
+
+        // Full scan mode
         for target in &self.targets {
             if target.is_file() {
                 // Single file target
