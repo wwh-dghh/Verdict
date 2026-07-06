@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Plugin marketplace
 - WASM plugin runtime (for advanced plugins)
-- GitHub Actions integration
 - Team collaboration features
 
 ### Changed
@@ -18,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Nothing yet
+
+## [0.2.1] - 2026-07-06
+
+### Added
+- GitHub Actions integration
+  - Composite action: `.github/actions/verdict/action.yml`
+  - Auto-installs verdict binary (detects OS/arch)
+  - Supports: targets, format, diff, explain, fail-on-error, version
+  - Outputs: findings count, errors count, pass/fail result
+  - Example workflow: `.github/workflows/example-verdict-check.yml`
 
 ## [0.2.0] - 2026-07-06
 
