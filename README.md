@@ -135,6 +135,53 @@ Custom security rules can be defined as JSON files in `./plugins/` or `~/.verdic
 
 Generate a template: `verdict init` (creates `plugins/example-rules.json`)
 
+## GitHub Actions Integration
+
+Add Verdict to your CI/CD pipeline:
+
+```yaml
+# .github/workflows/verdict.yml
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verdict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Verdict
+        uses: wwh-dghh/Verdict/.github/actions/verdict@main
+        with:
+          targets: '.'
+          diff: 'true'
+          format: 'json'
+          fail-on-error: 'true'
+```
+
+### Action Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `targets` | Directories/files to analyze | `.` |
+| `format` | Output format (terminal, json, sarif) | `terminal` |
+| `diff` | Only analyze git-changed files | `false` |
+| `explain` | Enable AI semantic review | `false` |
+| `fail-on-error` | Fail workflow on errors | `true` |
+| `version` | Verdict version to install | `latest` |
+
+### Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `findings` | Total number of findings |
+| `errors` | Number of errors found |
+| `result` | Overall result: `pass` or `fail` |
+
 ## Pre-commit Hook
 
 ```bash
@@ -204,9 +251,9 @@ VS Code Extension
 - [x] Pre-commit hook integration (`verdict hooks`)
 - [x] VS Code extension (`vscode-verdict/`)
 - [x] Go (golangci-lint) and Rust (clippy) linter support
+- [x] GitHub Actions integration (`.github/actions/verdict`)
 - [ ] Plugin marketplace
 - [ ] WASM plugin runtime (for advanced plugins)
-- [ ] GitHub Actions integration
 - [ ] Team collaboration features
 
 ## Contributing

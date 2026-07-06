@@ -1,0 +1,136 @@
+name: 'Verdict Code Quality Check'
+description: 'Run Verdict AI code verification on your repository'
+author: 'verdict-tool'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  targets:
+    description: 'Directories or files to analyze (space-separated)'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format: terminal, json, sarif'
+    required: false
+    default: 'terminal'
+  diff:
+    description: 'Only analyze git-changed files'
+    required: false
+    default: 'false'
+  explain:
+    description: 'Enable AI semantic review (requires LLM config)'
+    required: false
+    default: 'false'
+  version:
+    description: 'Verdict version to install (default: latest)'
+    required: false
+    default: 'latest'
+  fail-on-error:
+    description: 'Fail the action if errors are found'
+    required: false
+    default: 'true'
+
+outputs:
+  findings:
+    description: 'Total number of findings'
+    value: ${{ steps.verdict.outputs.findings }}
+  errors:
+    description: 'Number of errors found'
+    value: ${{ steps.verdict.outputs.errors }}
+  result:
+    description: 'Overall result: pass or fail'
+    value: ${{ steps.verdict.outputs.result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Verdict
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -s https://api.github.com/repos/wwh-dghh/Verdict/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+        fi
+        echo "Installing verdict v${VERSION}..."
+
+        # Detect platform
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64) ARCH="x86_64" ;;
+          aarch64|arm64) ARCH="aarch64" ;;
+          *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        case "$OS" in
+          linux) PLATFORM="unknown-linux-gnu" ;;
+          darwin) PLATFORM="apple-darwin" ;;
+          mingw*|msys*|cygwin*) PLATFORM="pc-windows-msvc" ;;
+          *) echo "Unsupported OS: $OS"; exit 1 ;;
+        esac
+
+        BINARY="verdict-${ARCH}-${PLATFORM}"
+        if [ "$OS" = "mingw"* ] || [ "$OS" = "msys"* ] || [ "$OS" = "cygwin"* ]; then
+          BINARY="${BINARY}.exe"
+        fi
+
+        URL="https://github.com/wwh-dghh/Verdict/releases/download/v${VERSION}/${BINARY}"
+        echo "Downloading: $URL"
+        curl -sL "$URL" -o verdict
+        chmod +x verdict
+        sudo mv verdict /usr/local/bin/verdict || mv verdict /usr/local/bin/verdict
+        echo "Verdict v${VERSION} installed"
+        verdict --version
+
+    - name: Run Verdict Check
+      id: verdict
+      shell: bash
+      run: |
+        ARGS="check"
+        TARGETS="${{ inputs.targets }}"
+        ARGS="$ARGS $TARGETS"
+
+        FORMAT="${{ inputs.format }}"
+        if [ "$FORMAT" != "terminal" ]; then
+          ARGS="$ARGS --format $FORMAT"
+        fi
+
+        if [ "${{ inputs.diff }}" = "true" ]; then
+          ARGS="$ARGS --diff"
+        fi
+
+        if [ "${{ inputs.explain }}" = "true" ]; then
+          ARGS="$ARGS --explain"
+        fi
+
+        echo "Running: verdict $ARGS"
+        set +e
+        OUTPUT=$(verdict $ARGS 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        echo "$OUTPUT"
+
+        # Parse findings count from JSON output
+        if [ "$FORMAT" = "json" ]; then
+          FINDINGS=$(echo "$OUTPUT" | grep -o '"total_findings":[0-9]*' | grep -o '[0-9]*' || echo "0")
+        else
+          FINDINGS=$(echo "$OUTPUT" | grep -oP 'Total findings: \K[0-9]+' || echo "0")
+        fi
+
+        ERRORS=$(echo "$OUTPUT" | grep -oP '\K[0-9]+(?= error)' || echo "0")
+
+        echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+        echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "result=pass" >> $GITHUB_OUTPUT
+        else
+          echo "result=fail" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            echo "::error::Verdict found $ERRORS error(s) and $FINDINGS total finding(s)"
+            exit 1
+          fi
+        fi

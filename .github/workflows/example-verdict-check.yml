@@ -1,0 +1,27 @@
+# Example: Verdict Code Quality Check
+# Add this to your .github/workflows/ directory
+
+name: Code Quality
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verdict:
+    name: Verdict Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Verdict
+        uses: wwh-dghh/Verdict/.github/actions/verdict@main
+        with:
+          targets: '.'
+          diff: 'true'
+          format: 'json'
+          fail-on-error: 'true'
