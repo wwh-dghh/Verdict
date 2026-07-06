@@ -111,6 +111,53 @@ thresholds:
   overall: 50
 ```
 
+## Plugins
+
+Custom security rules can be defined as JSON files in `./plugins/` or `~/.verdict/plugins/`:
+
+```json
+{
+  "name": "my-rules",
+  "version": "1.0.0",
+  "rules": [
+    {
+      "code": "CUSTOM001",
+      "name": "No console.log",
+      "pattern": "console\\.log\\s*\\(",
+      "severity": "warning",
+      "message": "console.log should not be in production",
+      "languages": ["javascript", "typescript"],
+      "exclude": ["**/test/**"]
+    }
+  ]
+}
+```
+
+Generate a template: `verdict init` (creates `plugins/example-rules.json`)
+
+## Pre-commit Hook
+
+```bash
+# Install
+verdict hooks
+
+# Uninstall
+verdict hooks --uninstall
+```
+
+The hook runs `verdict check --diff` before each commit. Skip with `git commit --no-verify`.
+
+## VS Code Extension
+
+Install the `verdict` extension from the VS Code marketplace, or build from source:
+
+```bash
+cd vscode-verdict
+npm install
+npm run package
+# Install the .vsix file in VS Code
+```
+
 ## Architecture
 
 ```
@@ -119,11 +166,18 @@ CLI (clap)
   ▼
 Pipeline Orchestrator
   ├── Preprocess  → File discovery & language detection
-  ├── Lint        → Ruff / Biome / Oxlint adapters
-  ├── Security    → Pattern-based vulnerability scanning
+  ├── Lint        → Ruff / Biome / Oxlint / golangci-lint / clippy
+  ├── Security    → Pattern-based vulnerability scanning + plugins
   ├── Semantic    → LLM-as-Judge (optional)
   ├── Aggregate   → Multi-dimensional scoring
   └── Report      → Terminal / JSON / SARIF
+
+Plugin System
+  ├── ~/.verdict/plugins/  → User-level custom rules
+  └── ./plugins/           → Project-level custom rules
+
+VS Code Extension
+  └── vscode-verdict/      → Diagnostics, auto-check on save
 ```
 
 ## Security Rules
@@ -145,11 +199,15 @@ Pipeline Orchestrator
 - [x] Terminal, JSON, SARIF output
 - [x] LLM-as-Judge semantic review
 - [x] `verdict init` / `verdict rules` commands
-- [ ] Git diff-aware incremental analysis
-- [ ] WASM plugin system for custom rules
-- [ ] Pre-commit hook integration
-- [ ] IDE extensions (VS Code)
-- [ ] Additional linter integrations (golangci-lint, clippy)
+- [x] Git diff-aware incremental analysis (`--diff`)
+- [x] Plugin system for custom security rules (JSON-based)
+- [x] Pre-commit hook integration (`verdict hooks`)
+- [x] VS Code extension (`vscode-verdict/`)
+- [x] Go (golangci-lint) and Rust (clippy) linter support
+- [ ] Plugin marketplace
+- [ ] WASM plugin runtime (for advanced plugins)
+- [ ] GitHub Actions integration
+- [ ] Team collaboration features
 
 ## Contributing
 
