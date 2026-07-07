@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 /// Represents the diff source for incremental analysis
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum DiffSource {
     /// Changes staged for commit (git diff --cached)
     Staged,
@@ -14,8 +13,6 @@ pub enum DiffSource {
     /// All uncommitted changes (staged + unstaged)
     #[default]
     All,
-    /// Changes vs a specific branch/tag/ref
-    Ref(&'static str),
 }
 
 /// Options for git diff file discovery
@@ -25,9 +22,6 @@ pub struct DiffOptions {
     pub source: DiffSource,
     /// Only return files with supported extensions
     pub supported_only: bool,
-    /// Include renamed files (use new path)
-    #[allow(dead_code)]
-    pub include_renames: bool,
 }
 
 impl Default for DiffOptions {
@@ -35,7 +29,6 @@ impl Default for DiffOptions {
         Self {
             source: DiffSource::All,
             supported_only: true,
-            include_renames: true,
         }
     }
 }
@@ -54,7 +47,6 @@ pub fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Result<Ve
             run_git_diff(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"])
         }
         DiffSource::All => {
-            // Try staged first, then working tree, combine unique
             let staged = run_git_diff(
                 repo_root,
                 &["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
@@ -78,10 +70,6 @@ pub fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Result<Ve
             }
             return Ok(all);
         }
-        DiffSource::Ref(ref_str) => run_git_diff(
-            repo_root,
-            &["diff", ref_str, "--name-only", "--diff-filter=ACMR"],
-        ),
     };
 
     let output = output?;
@@ -201,7 +189,6 @@ mod tests {
         let opts = DiffOptions::default();
         assert_eq!(opts.source, DiffSource::All);
         assert!(opts.supported_only);
-        assert!(opts.include_renames);
     }
 
     #[test]

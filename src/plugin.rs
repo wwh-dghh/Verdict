@@ -91,7 +91,6 @@ impl PluginLoader {
     }
 
     /// Create a plugin loader with specific directories
-    #[allow(dead_code)]
     pub fn with_dirs(dirs: Vec<PathBuf>) -> Self {
         Self { plugin_dirs: dirs }
     }

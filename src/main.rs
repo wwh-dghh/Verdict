@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     if cli.version {
-        println!("verdict 0.1.0");
+        println!("verdict {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 

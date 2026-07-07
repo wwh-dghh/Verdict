@@ -29,7 +29,6 @@ impl Language {
     }
 
     /// Default linter for this language
-    #[expect(dead_code)]
     pub fn default_linter(&self) -> LinterKind {
         match self {
             Language::Python => LinterKind::Ruff,
@@ -40,7 +39,6 @@ impl Language {
     }
 
     /// File extensions for this language
-    #[expect(dead_code)]
     pub fn extensions(&self) -> &'static [&'static str] {
         match self {
             Language::Python => &["py"],
@@ -287,16 +285,11 @@ impl Default for Config {
 /// Analysis pipeline stage
 #[derive(Debug, Clone, Serialize)]
 pub enum PipelineStage {
-    #[expect(dead_code)]
     Preprocess,
-    #[expect(dead_code)]
     Lint,
-    #[expect(dead_code)]
     Security,
-    #[expect(dead_code)]
     Semantic,
     Aggregate,
-    #[expect(dead_code)]
     Report,
 }
 

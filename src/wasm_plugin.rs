@@ -10,10 +10,8 @@ use wasmtime::Store;
 /// A WASM plugin that provides custom security rules
 pub struct WasmPlugin {
     engine: wasmtime::Engine,
-    #[expect(dead_code)]
     module: wasmtime::Module,
     name: String,
-    #[expect(dead_code)]
     version: String,
 }
 

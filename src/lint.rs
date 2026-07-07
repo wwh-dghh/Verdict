@@ -24,8 +24,19 @@ impl Stage for LintStage {
 
         for adapter in &self.linters {
             for r in &mut results {
-                let findings = adapter.lint_file(&r.path).await.unwrap_or_default();
-                r.findings.extend(findings);
+                match adapter.lint_file(&r.path).await {
+                    Ok(findings) => {
+                        r.findings.extend(findings);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "linter '{}' failed on {}: {}",
+                            adapter.name(),
+                            r.path.display(),
+                            e
+                        );
+                    }
+                }
             }
         }
 
@@ -66,7 +77,6 @@ impl LintStage {
 
 /// Trait for lint adapter implementations
 #[async_trait::async_trait]
-#[expect(dead_code)]
 pub trait LintAdapter: Send + Sync {
     fn name(&self) -> &str;
     async fn lint_file(&self, path: &Path) -> Result<Vec<Finding>>;
@@ -108,8 +118,6 @@ fn parse_ruff_output(output: &[u8], file: &Path) -> Vec<Finding> {
     #[derive(Deserialize)]
     struct RuffLocation {
         row: usize,
-        #[expect(dead_code)]
-        column: usize,
     }
 
     #[derive(Deserialize)]
@@ -257,8 +265,6 @@ fn parse_golangci_output(output: &[u8], _file: &Path) -> Vec<Finding> {
     #[derive(Deserialize)]
     struct GolangciLocation {
         line: Option<usize>,
-        #[expect(dead_code)]
-        column: Option<usize>,
     }
 
     #[derive(Deserialize)]
