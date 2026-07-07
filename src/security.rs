@@ -56,6 +56,13 @@ fn glob_match(pattern: &str, text: &str) -> bool {
     }
 }
 
+/// Find the line number of the first regex match in the text
+fn find_match_line(text: &str, regex: &Regex) -> Option<usize> {
+    regex
+        .find(text)
+        .map(|m| text[..m.start()].bytes().filter(|&b| b == b'\n').count() + 1)
+}
+
 /// Built-in security rules
 fn builtin_rules() -> Vec<SecurityPattern> {
     vec![
@@ -198,13 +205,14 @@ impl Stage for SecurityStage {
                     }
 
                     if pattern.regex.is_match(&text) {
+                        let line_num = find_match_line(&text, &pattern.regex);
                         r.findings.push(Finding {
                             category: Category::Security,
                             severity: pattern.severity,
                             code: pattern.code.clone(),
                             message: pattern.message.clone(),
                             file: r.path.clone(),
-                            line: None,
+                            line: line_num,
                             column: None,
                             suggestion: pattern.suggestion.clone(),
                             ai_explanation: None,
@@ -426,5 +434,33 @@ def get_user(id):
 "#;
         let matches = patterns_match(clean);
         assert!(matches.is_empty(), "clean code triggered: {:?}", matches);
+    }
+
+    #[test]
+    fn test_find_match_line_single_line() {
+        let text = "hello world";
+        let re = Regex::new("world").unwrap();
+        assert_eq!(find_match_line(text, &re), Some(1));
+    }
+
+    #[test]
+    fn test_find_match_line_multiline() {
+        let text = "line 1\nline 2\npassword = 'secret'\nline 4";
+        let re = Regex::new(r"password\s*=").unwrap();
+        assert_eq!(find_match_line(text, &re), Some(3));
+    }
+
+    #[test]
+    fn test_find_match_line_no_match() {
+        let text = "safe code here";
+        let re = Regex::new("eval").unwrap();
+        assert_eq!(find_match_line(text, &re), None);
+    }
+
+    #[test]
+    fn test_find_match_line_first_line() {
+        let text = "eval(user_input)\nmore code";
+        let re = Regex::new(r"eval\s*\(").unwrap();
+        assert_eq!(find_match_line(text, &re), Some(1));
     }
 }
