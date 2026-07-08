@@ -394,6 +394,10 @@ impl ClippyAdapter {
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."));
         loop {
+            // Guard against empty path (root of filesystem or Windows drive root)
+            if current.as_os_str().is_empty() {
+                break;
+            }
             if current.join("Cargo.toml").exists() {
                 return current;
             }

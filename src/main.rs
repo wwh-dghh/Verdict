@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(name = "verdict")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "AI code, human confidence. Verify the quality of AI-generated code.")]
 struct Cli {
     /// Target files or directories to analyze
@@ -31,9 +32,6 @@ struct Cli {
 
     #[arg(long, short)]
     verbose: bool,
-
-    #[arg(long)]
-    version: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -99,11 +97,6 @@ enum PluginCommands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-
-    if cli.version {
-        println!("verdict {}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
 
     // Logging
     if cli.verbose {

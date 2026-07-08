@@ -163,15 +163,16 @@ impl Reporter {
         let mut codes = std::collections::HashSet::new();
         for r in &result.results {
             for f in &r.findings {
-                codes.insert(&f.code);
+                codes.insert((&f.code, &f.message));
             }
         }
         codes
             .iter()
-            .map(|code| {
+            .map(|(code, desc)| {
                 serde_json::json!({
                     "id": code,
-                    "shortDescription": {"text": code}
+                    "shortDescription": {"text": code},
+                    "fullDescription": {"text": desc}
                 })
             })
             .collect()
