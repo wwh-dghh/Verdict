@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
 /// Represents the diff source for incremental analysis
+#[allow(dead_code)] // Variants are part of the public API for future CLI flags
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffSource {
     /// Changes staged for commit (git diff --cached)

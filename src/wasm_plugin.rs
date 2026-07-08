@@ -10,8 +10,10 @@ use wasmtime::Store;
 /// A WASM plugin that provides custom security rules
 pub struct WasmPlugin {
     engine: wasmtime::Engine,
+    #[allow(dead_code)] // kept for upcoming rule invocation
     module: wasmtime::Module,
     name: String,
+    #[allow(dead_code)] // populated from WASM metadata when supported
     version: String,
 }
 
@@ -37,6 +39,16 @@ impl WasmPlugin {
             name,
             version: "1.0.0".to_string(), // TODO: read from WASM metadata
         })
+    }
+
+    /// Plugin display name (derived from the file stem)
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Plugin semantic version
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     /// Execute the plugin's rules against the given text
@@ -70,6 +82,12 @@ pub struct WasmPluginLoader {
     plugin_dirs: Vec<std::path::PathBuf>,
 }
 
+impl Default for WasmPluginLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WasmPluginLoader {
     /// Create a new WASM plugin loader
     pub fn new() -> Self {
@@ -86,6 +104,11 @@ impl WasmPluginLoader {
         }
 
         Self { plugin_dirs: dirs }
+    }
+
+    /// Return the configured plugin directories (read-only)
+    pub fn plugin_dirs(&self) -> &[std::path::PathBuf] {
+        &self.plugin_dirs
     }
 
     /// Load all WASM plugins from configured directories

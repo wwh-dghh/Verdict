@@ -29,6 +29,7 @@ impl Language {
     }
 
     /// Default linter for this language
+    #[allow(dead_code)] // public API used by external tools and future features
     pub fn default_linter(&self) -> LinterKind {
         match self {
             Language::Python => LinterKind::Ruff,
@@ -39,6 +40,7 @@ impl Language {
     }
 
     /// File extensions for this language
+    #[allow(dead_code)] // public API used by external tools and future features
     pub fn extensions(&self) -> &'static [&'static str] {
         match self {
             Language::Python => &["py"],
@@ -283,7 +285,8 @@ impl Default for Config {
 }
 
 /// Analysis pipeline stage
-#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)] // All variants are part of the public API for result reporting
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum PipelineStage {
     Preprocess,
     Lint,

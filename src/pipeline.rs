@@ -73,13 +73,16 @@ impl Pipeline {
     ) -> Result<PipelineResult> {
         let start = Instant::now();
         let mut stages_completed = Vec::new();
+
+        // Preprocess stage — discover target files
         let preprocess = PreprocessStage::new(targets, ignore_patterns, self.diff_mode);
         let mut results: Vec<AnalysisResult> = preprocess
             .execute(&[])
             .await
             .context("preprocess stage failed")?;
+        stages_completed.push(PipelineStage::Preprocess);
 
-        // Run each stage in sequence
+        // Run each configured stage in sequence
         for stage in &self.stages {
             let stage_start = Instant::now();
             let input = std::mem::take(&mut results);
@@ -89,9 +92,17 @@ impl Pipeline {
                 .with_context(|| format!("stage '{}' failed", stage.name()))?;
             let elapsed = stage_start.elapsed();
             tracing::info!("stage '{}' completed in {:?}", stage.name(), elapsed);
+
+            // Track the completed stage by name
+            match stage.name() {
+                "lint" => stages_completed.push(PipelineStage::Lint),
+                "security" => stages_completed.push(PipelineStage::Security),
+                "semantic" => stages_completed.push(PipelineStage::Semantic),
+                _ => {}
+            }
         }
 
-        // Stage: Aggregate scores
+        // Aggregate stage — compute scores
         let aggregate = AggregateStage {};
         results = aggregate
             .execute(&results)
@@ -302,5 +313,153 @@ impl Stage for AggregateStage {
         }
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    fn make_result(path: &str, findings: Vec<Finding>) -> AnalysisResult {
+        AnalysisResult {
+            path: PathBuf::from(path),
+            language: Language::from_path(Path::new(path)),
+            findings,
+            scores: None,
+            duration_ms: 0,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_preprocess_stage_single_file() {
+        let stage = PreprocessStage::new(
+            vec![PathBuf::from("src/main.rs")],
+            vec![".git".into()],
+            false,
+        );
+        let results = stage.execute(&[]).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, PathBuf::from("src/main.rs"));
+        assert_eq!(results[0].language, Some(Language::Rust));
+    }
+
+    #[tokio::test]
+    async fn test_preprocess_stage_unknown_extension() {
+        let stage = PreprocessStage::new(vec![PathBuf::from("readme.txt")], vec![], false);
+        let results = stage.execute(&[]).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_preprocess_stage_walks_directory() {
+        // Use the repo's own src/ directory which is known to contain .rs files
+        let stage = PreprocessStage::new(vec![PathBuf::from("src")], vec!["target".into()], false);
+        let results = stage.execute(&[]).await.unwrap();
+        // Should find at least main.rs and models.rs
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|r| r.language == Some(Language::Rust)));
+    }
+
+    #[tokio::test]
+    async fn test_preprocess_stage_respects_ignore() {
+        let stage = PreprocessStage::new(vec![PathBuf::from(".")], vec!["src".into()], false);
+        let results = stage.execute(&[]).await.unwrap();
+        // With "src" in the ignore list, walking "." should skip it
+        assert!(results.is_empty() || !results.iter().any(|r| r.path.starts_with("src")));
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_stage_empty_input() {
+        let stage = AggregateStage;
+        let result = stage.execute(&[]).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_stage_no_findings_full_score() {
+        let stage = AggregateStage;
+        let input = vec![make_result("src/lib.rs", vec![])];
+        let result = stage.execute(&input).await.unwrap();
+        assert_eq!(result.len(), 1);
+        let scores = result[0].scores.as_ref().unwrap();
+        assert_eq!(scores.security, 100.0);
+        assert_eq!(scores.code_quality, 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_stage_security_finding_drops_score() {
+        let stage = AggregateStage;
+        let finding = Finding::new(
+            Category::Security,
+            Severity::Error,
+            "SEC001",
+            "SQL injection",
+            PathBuf::from("src/lib.rs"),
+            Some(1),
+        );
+        let input = vec![make_result("src/lib.rs", vec![finding])];
+        let result = stage.execute(&input).await.unwrap();
+        let scores = result[0].scores.as_ref().unwrap();
+        // Has a security finding -> security score should drop
+        assert_eq!(scores.security, 50.0);
+        // Errors pull code_quality down
+        assert!(scores.code_quality < 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_stage_warnings_penalize_quality() {
+        let stage = AggregateStage;
+        let warnings: Vec<Finding> = (0..3)
+            .map(|i| {
+                Finding::new(
+                    Category::Lint,
+                    Severity::Warning,
+                    "W001",
+                    format!("warn {i}"),
+                    PathBuf::from("src/lib.rs"),
+                    Some(i + 1),
+                )
+            })
+            .collect();
+        let input = vec![make_result("src/lib.rs", warnings)];
+        let result = stage.execute(&input).await.unwrap();
+        let scores = result[0].scores.as_ref().unwrap();
+        // No security findings -> security stays 100
+        assert_eq!(scores.security, 100.0);
+        // Warnings should reduce code_quality below 100
+        assert!(scores.code_quality < 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_pipeline_builder_constructs() {
+        let builder = PipelineBuilder::new();
+        assert!(!builder.diff_mode);
+        let pipeline = builder.build();
+        // No stages means just preprocess + aggregate
+        let result = pipeline
+            .run(vec![PathBuf::from("readme.txt")], vec![])
+            .await
+            .unwrap();
+        // txt file isn't a supported language, so no files discovered
+        assert_eq!(result.results.len(), 0);
+        // Both stages should be tracked
+        assert!(result.stages_completed.contains(&PipelineStage::Preprocess));
+        assert!(result.stages_completed.contains(&PipelineStage::Aggregate));
+    }
+
+    #[tokio::test]
+    async fn test_pipeline_records_all_stages() {
+        let pipeline = PipelineBuilder::new().with_lint().with_security().build();
+        let result = pipeline
+            .run(vec![PathBuf::from("src")], vec!["target".into()])
+            .await
+            .unwrap();
+
+        let stages = &result.stages_completed;
+        assert!(stages.contains(&PipelineStage::Preprocess));
+        assert!(stages.contains(&PipelineStage::Lint));
+        assert!(stages.contains(&PipelineStage::Security));
+        assert!(stages.contains(&PipelineStage::Aggregate));
     }
 }

@@ -65,6 +65,12 @@ pub struct PluginLoader {
     plugin_dirs: Vec<PathBuf>,
 }
 
+impl Default for PluginLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluginLoader {
     /// Create a new plugin loader with default plugin directories
     pub fn new() -> Self {
@@ -91,8 +97,14 @@ impl PluginLoader {
     }
 
     /// Create a plugin loader with specific directories
+    #[allow(dead_code)] // public constructor for embedders and tests
     pub fn with_dirs(dirs: Vec<PathBuf>) -> Self {
         Self { plugin_dirs: dirs }
+    }
+
+    /// Return the configured plugin directories (read-only)
+    pub fn plugin_dirs(&self) -> &[PathBuf] {
+        &self.plugin_dirs
     }
 
     /// Load all plugins from configured directories
@@ -326,6 +338,20 @@ mod tests {
         let loader = PluginLoader::with_dirs(vec![PathBuf::from("/nonexistent/path/plugins")]);
         let plugins = loader.load_all().unwrap();
         assert_eq!(plugins.len(), 0);
+    }
+
+    #[test]
+    fn test_plugin_dirs_accessor() {
+        let dirs = vec![PathBuf::from("/tmp/a"), PathBuf::from("/tmp/b")];
+        let loader = PluginLoader::with_dirs(dirs.clone());
+        assert_eq!(loader.plugin_dirs(), &dirs[..]);
+    }
+
+    #[test]
+    fn test_plugin_loader_default() {
+        let loader = PluginLoader::default();
+        // Default should at least include a plugins/ entry for the cwd
+        assert!(!loader.plugin_dirs().is_empty());
     }
 
     #[test]

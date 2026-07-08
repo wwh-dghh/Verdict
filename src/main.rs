@@ -58,6 +58,8 @@ enum Commands {
     Init,
     /// Show available security rules
     Rules,
+    /// List loaded plugins (JSON and WASM)
+    Plugins,
     /// Set up git pre-commit hook
     Hooks {
         /// Remove the hook
@@ -94,6 +96,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Some(Commands::Init) => cmd_init(),
         Some(Commands::Rules) => cmd_rules(),
+        Some(Commands::Plugins) => cmd_plugins(),
         Some(Commands::Hooks { uninstall }) => cmd_hooks(uninstall),
         Some(Commands::Check {
             targets,
@@ -234,6 +237,55 @@ fn cmd_rules() -> anyhow::Result<()> {
     println!("\nLint rules are provided by the underlying linters (Ruff, Biome, etc.)");
     println!("\nCustom rules: place .json files in ~/.verdict/plugins/ or ./plugins/");
     println!("Run 'verdict hooks' to set up git pre-commit hook");
+    Ok(())
+}
+
+fn cmd_plugins() -> anyhow::Result<()> {
+    println!("Loaded plugins:\n");
+
+    // JSON plugins
+    let json_loader = plugin::PluginLoader::new();
+    let json_plugins = json_loader.load_all().unwrap_or_default();
+    if json_plugins.is_empty() {
+        println!("  (no JSON plugins found)");
+    } else {
+        println!("  JSON rule plugins:");
+        for p in &json_plugins {
+            println!(
+                "    - {} v{} ({} rule{})",
+                p.name,
+                p.version,
+                p.rules.len(),
+                if p.rules.len() == 1 { "" } else { "s" }
+            );
+            if !p.description.is_empty() {
+                println!("        {}", p.description);
+            }
+        }
+    }
+
+    // WASM plugins
+    println!();
+    let wasm_loader = wasm_plugin::WasmPluginLoader::new();
+    let wasm_plugins = wasm_loader.load_all().unwrap_or_default();
+    if wasm_plugins.is_empty() {
+        println!("  (no WASM plugins found)");
+    } else {
+        println!("  WASM plugins:");
+        for p in &wasm_plugins {
+            println!("    - {} v{}", p.name(), p.version());
+        }
+    }
+
+    println!("\nPlugin directories:");
+    for dir in json_loader.plugin_dirs() {
+        println!("  - {}", dir.display());
+    }
+    for dir in wasm_loader.plugin_dirs() {
+        println!("  - {} (wasm)", dir.display());
+    }
+
+    println!("\nTo install a plugin, drop a .json (rules) or .wasm file into one of the directories above.");
     Ok(())
 }
 
