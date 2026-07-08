@@ -314,6 +314,8 @@ pub struct LLMConfig {
     pub model: String,
     #[serde(default = "default_max_tokens")]
     pub max_tokens: usize,
+    #[serde(default = "default_max_input_chars")]
+    pub max_input_chars: usize,
 }
 
 fn default_true() -> bool {
@@ -321,6 +323,9 @@ fn default_true() -> bool {
 }
 fn default_max_tokens() -> usize {
     500
+}
+fn default_max_input_chars() -> usize {
+    4000
 }
 
 impl Default for Config {
