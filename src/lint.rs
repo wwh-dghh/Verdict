@@ -141,8 +141,12 @@ fn parse_ruff_output(output: &[u8], file: &Path) -> Vec<Finding> {
     let mut findings = Vec::new();
     for diag in report.diagnostics {
         let severity = match diag.code.as_str() {
-            "F401" | "F841" | "E" | "F" => Severity::Error,
+            "F401" | "F841" => Severity::Error,
+            c if c.starts_with('E') || c.starts_with('F') => Severity::Error,
             "W" | "B" | "SIM" => Severity::Warning,
+            c if c.starts_with('W') || c.starts_with('B') || c.starts_with("SIM") => {
+                Severity::Warning
+            }
             _ => Severity::Info,
         };
 

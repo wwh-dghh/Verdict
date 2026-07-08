@@ -331,46 +331,45 @@ impl Stage for AggregateStage {
             let code_quality = code_quality.clamp(0.0, 100.0);
 
             // Security score: penalize based on number and severity of findings
-            let sec_findings: Vec<_> = r
+            let (sec_penalty, sec_count) = r
                 .findings
                 .iter()
                 .filter(|f| matches!(f.category, Category::Security))
-                .collect();
-
-            let security = if sec_findings.is_empty() {
-                100.0
-            } else {
-                let penalty = sec_findings
-                    .iter()
-                    .map(|f| match f.severity {
+                .fold((0.0_f64, 0usize), |(pen, cnt), f| {
+                    let p = match f.severity {
                         Severity::Error => 15.0,
                         Severity::Warning => 5.0,
                         Severity::Info => 2.0,
-                    })
-                    .sum::<f64>();
-                (100.0 - penalty).clamp(0.0, 100.0)
+                        _ => 0.0,
+                    };
+                    (pen + p, cnt + 1)
+                });
+
+            let security = if sec_count == 0 {
+                100.0
+            } else {
+                (100.0 - sec_penalty).clamp(0.0, 100.0)
             };
 
             // Performance score: derived from lint findings (heuristics)
-            let perf_score = {
-                let perf_findings: Vec<_> = r
-                    .findings
-                    .iter()
-                    .filter(|f| matches!(f.category, Category::Performance))
-                    .collect();
-                if perf_findings.is_empty() {
-                    90.0 // no performance issues detected
-                } else {
-                    let penalty = perf_findings
-                        .iter()
-                        .map(|f| match f.severity {
-                            Severity::Error => 20.0,
-                            Severity::Warning => 8.0,
-                            Severity::Info => 3.0,
-                        })
-                        .sum::<f64>();
-                    (100.0 - penalty).clamp(0.0, 100.0)
-                }
+            let (perf_penalty, perf_count) = r
+                .findings
+                .iter()
+                .filter(|f| matches!(f.category, Category::Performance))
+                .fold((0.0_f64, 0usize), |(pen, cnt), f| {
+                    let p = match f.severity {
+                        Severity::Error => 20.0,
+                        Severity::Warning => 8.0,
+                        Severity::Info => 3.0,
+                        _ => 0.0,
+                    };
+                    (pen + p, cnt + 1)
+                });
+
+            let perf_score = if perf_count == 0 {
+                90.0 // no performance issues detected
+            } else {
+                (100.0 - perf_penalty).clamp(0.0, 100.0)
             };
 
             // Test coverage estimate: based on file extension and presence of test files
@@ -394,26 +393,24 @@ impl Stage for AggregateStage {
             };
 
             // AI risk: derived from semantic findings count
-            let ai_risk_score = {
-                let semantic_findings: Vec<_> = r
-                    .findings
-                    .iter()
-                    .filter(|f| matches!(f.category, Category::AiSemantic))
-                    .collect();
-                if semantic_findings.is_empty() {
-                    75.0 // no semantic review performed
-                } else {
-                    // Penalize if many semantic issues found
-                    let penalty = semantic_findings
-                        .iter()
-                        .map(|f| match f.severity {
-                            Severity::Error => 10.0,
-                            Severity::Warning => 3.0,
-                            Severity::Info => 1.0,
-                        })
-                        .sum::<f64>();
-                    (100.0 - penalty).clamp(0.0, 100.0)
-                }
+            let (ai_penalty, ai_count) = r
+                .findings
+                .iter()
+                .filter(|f| matches!(f.category, Category::AiSemantic))
+                .fold((0.0_f64, 0usize), |(pen, cnt), f| {
+                    let p = match f.severity {
+                        Severity::Error => 10.0,
+                        Severity::Warning => 3.0,
+                        Severity::Info => 1.0,
+                        _ => 0.0,
+                    };
+                    (pen + p, cnt + 1)
+                });
+
+            let ai_risk_score = if ai_count == 0 {
+                75.0 // no semantic review performed
+            } else {
+                (100.0 - ai_penalty).clamp(0.0, 100.0)
             };
 
             let scores = QualityScores::new(

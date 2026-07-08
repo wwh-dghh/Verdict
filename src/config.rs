@@ -90,7 +90,7 @@ pub fn merge_config(mut config: Config, overrides: CliOverrides) -> Config {
         config.diff_mode = true;
     }
     if overrides.fix {
-        // TODO: implement fix mode
+        tracing::warn!("--fix is experimental and not yet implemented");
     }
     config
 }

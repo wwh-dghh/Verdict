@@ -186,8 +186,7 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
         .any(|f| f.is_error());
 
     if has_errors {
-        println!("\n✗ Analysis failed — fix errors before committing.");
-        std::process::exit(1);
+        anyhow::bail!("Analysis failed — fix errors before committing.");
     }
 
     // Check quality thresholds
@@ -222,11 +221,10 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
     }
 
     if !threshold_failures.is_empty() {
-        println!("\n✗ Analysis failed — threshold violations:");
-        for f in &threshold_failures {
-            println!("  - {f}");
-        }
-        std::process::exit(1);
+        anyhow::bail!(
+            "Analysis failed — threshold violations:\n{}",
+            threshold_failures.join("\n")
+        );
     }
 
     println!("\n✓ Analysis passed.");
