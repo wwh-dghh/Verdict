@@ -1,6 +1,6 @@
 //! Configuration loading — reads from config file and CLI args.
 
-use crate::models::{Config, OutputFormat, Language};
+use crate::models::{Config, Language, OutputFormat};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
@@ -77,8 +77,8 @@ pub fn merge_config(mut config: Config, overrides: CliOverrides) -> Config {
     if let Some(langs) = overrides.languages {
         config.languages = langs;
     }
-    if overrides.output_format.is_some() {
-        config.output = overrides.output_format.unwrap_or(config.output);
+    if let Some(format) = overrides.output_format {
+        config.output = format;
     }
     if overrides.ai_review {
         config.ai_review = true;

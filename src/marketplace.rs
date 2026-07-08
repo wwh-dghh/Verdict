@@ -83,8 +83,9 @@ impl MarketplaceClient {
 
     /// Install a plugin from the marketplace
     pub fn install_plugin(&self, plugin_id: &str) -> Result<()> {
-        fs::create_dir_all(&self.plugin_dir)
-            .with_context(|| format!("failed to create plugin dir: {}", self.plugin_dir.display()))?;
+        fs::create_dir_all(&self.plugin_dir).with_context(|| {
+            format!("failed to create plugin dir: {}", self.plugin_dir.display())
+        })?;
 
         let plugin_file = self.plugin_dir.join(format!("{}.json", plugin_id));
 

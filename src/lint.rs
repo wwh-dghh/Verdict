@@ -1,6 +1,6 @@
 //! Lint adapter modules — wraps Ruff, Biome, Oxlint as subprocesses.
 
-use crate::models::{AnalysisResult, Finding, Severity, Category};
+use crate::models::{AnalysisResult, Category, Finding, Severity};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::Path;
@@ -336,7 +336,7 @@ impl LintAdapter for GolangciLintAdapter {
     }
 }
 
-fn parse_golangci_output(output: &[u8], _file: &Path) -> Vec<Finding> {
+fn parse_golangci_output(output: &[u8], file: &Path) -> Vec<Finding> {
     #[derive(Deserialize)]
     struct GolangciIssue {
         text: String,
@@ -374,7 +374,7 @@ fn parse_golangci_output(output: &[u8], _file: &Path) -> Vec<Finding> {
             severity,
             issue.from_linter.clone(),
             issue.text,
-            _file.to_path_buf(),
+            file.to_path_buf(),
             Some(line),
         ));
     }

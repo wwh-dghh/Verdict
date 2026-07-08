@@ -402,7 +402,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 "
-            .to_string()
+        .to_string()
     } else {
         r#"#!/bin/sh
 # verdict-precommit
@@ -414,7 +414,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 "#
-            .to_string()
+        .to_string()
     }
 }
 

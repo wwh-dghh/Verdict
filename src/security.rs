@@ -42,18 +42,70 @@ impl SecurityPattern {
     }
 }
 
-/// Simple glob-like pattern matching (supports * and **)
+/// Simple glob-like pattern matching (supports *, **, and ?)
+///
+/// `*` matches any characters except path separators (`/`).
+/// `**` matches any characters including path separators.
+/// `?` matches any single character except path separators.
 fn glob_match(pattern: &str, text: &str) -> bool {
-    // Convert glob pattern to regex
-    let regex_pattern = pattern
-        .replace(".", "\\.")
-        .replace("*", ".*")
-        .replace("?", ".");
-    if let Ok(re) = Regex::new(&format!("^{}$", regex_pattern)) {
-        re.is_match(text)
-    } else {
-        false
+    fn matches(
+        pattern: &[char],
+        text: &[char],
+        p: usize,
+        t: usize,
+        memo: &mut [Vec<Option<bool>>],
+    ) -> bool {
+        if p == pattern.len() {
+            return t == text.len();
+        }
+        if let Some(result) = memo[p][t] {
+            return result;
+        }
+
+        let result = match pattern[p] {
+            '*' => {
+                let is_double_star = p + 1 < pattern.len() && pattern[p + 1] == '*';
+                if is_double_star {
+                    // ** matches zero or more path segments
+                    let next_p = p + 2;
+                    // **/ can match the start
+                    let slash_after = next_p < pattern.len() && pattern[next_p] == '/';
+                    if slash_after && matches(pattern, text, next_p + 1, t, memo) {
+                        true
+                    } else {
+                        // try matching ** at each position
+                        (0..=text.len() - t).any(|i| matches(pattern, text, next_p, t + i, memo))
+                    }
+                } else {
+                    // * matches anything except /
+                    let next_p = p + 1;
+                    // empty match
+                    matches(pattern, text, next_p, t, memo)
+                        || (t < text.len()
+                            && text[t] != '/'
+                            && matches(pattern, text, p, t + 1, memo))
+                }
+            }
+            '?' => {
+                t < text.len()
+                    && text[t] != '/'
+                    && matches(pattern, text, p + 1, t + 1, memo)
+            }
+            c => {
+                t < text.len()
+                    && c == text[t]
+                    && matches(pattern, text, p + 1, t + 1, memo)
+            }
+        };
+
+        memo[p][t] = Some(result);
+        result
     }
+
+    let pattern_chars: Vec<char> = pattern.chars().collect();
+    let text_chars: Vec<char> = text.chars().collect();
+    let mut memo = vec![vec![None; text_chars.len() + 1]; pattern_chars.len() + 1];
+    matches(&pattern_chars, &text_chars, 0, 0, &mut memo)
 }
 
 /// Find the line number of the first regex match in the text
@@ -462,5 +514,44 @@ def get_user(id):
         let text = "eval(user_input)\nmore code";
         let re = Regex::new(r"eval\s*\(").unwrap();
         assert_eq!(find_match_line(text, &re), Some(1));
+    }
+
+    #[test]
+    fn test_glob_match_exact() {
+        assert!(glob_match("test.py", "test.py"));
+        assert!(!glob_match("test.py", "test.js"));
+    }
+
+    #[test]
+    fn test_glob_match_single_char() {
+        assert!(glob_match("test.?s", "test.js"));
+        assert!(glob_match("test.?s", "test.ts"));
+        assert!(!glob_match("test.?s", "test.py"));
+    }
+
+    #[test]
+    fn test_glob_match_star() {
+        assert!(glob_match("*.py", "test.py"));
+        assert!(!glob_match("*.py", "src/test.py"));
+        assert!(!glob_match("*.py", "test.js"));
+    }
+
+    #[test]
+    fn test_glob_match_path() {
+        assert!(glob_match("**/test/**", "src/test/main.py"));
+        assert!(glob_match("src/*.rs", "src/main.rs"));
+        assert!(!glob_match("src/*.rs", "src/mod/main.rs"));
+    }
+
+    #[test]
+    fn test_glob_match_empty_pattern() {
+        assert!(glob_match("", ""));
+        assert!(!glob_match("", "test"));
+    }
+
+    #[test]
+    fn test_glob_match_star_only() {
+        assert!(glob_match("*", "anything"));
+        assert!(glob_match("*", ""));
     }
 }

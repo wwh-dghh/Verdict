@@ -31,6 +31,11 @@ impl Stage for SemanticStage {
                 // Limit to first 4000 chars to avoid token limits
                 let snippet: String = text.chars().take(4000).collect();
 
+                let lang_name = r
+                    .language
+                    .map(|l| format!("{:?}", l).to_lowercase())
+                    .unwrap_or_else(|| "unknown".to_string());
+
                 let prompt = format!(
                     "Review this {} code for AI-generated code quality issues:\n\n{}\n\n\n\
                      Check for:\n\
@@ -41,10 +46,7 @@ impl Stage for SemanticStage {
                      - Logic that looks correct but has subtle bugs\n\
                      - Lack of edge case handling\n\n\
                      Rate on a scale of 0-100 and provide a brief explanation.",
-                    r.language
-                        .map(|l| format!("{:?}", l).to_lowercase())
-                        .unwrap_or("unknown".into()),
-                    snippet
+                    lang_name, snippet
                 );
 
                 let response = call_llm(config, &prompt).await;

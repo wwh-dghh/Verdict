@@ -28,6 +28,18 @@ impl Language {
         }
     }
 
+    /// Human-readable display name for the language
+    #[allow(dead_code)] // public API used by external tools and future features
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Language::Python => "Python",
+            Language::JavaScript => "JavaScript",
+            Language::TypeScript => "TypeScript",
+            Language::Go => "Go",
+            Language::Rust => "Rust",
+        }
+    }
+
     /// Default linter for this language
     #[allow(dead_code)] // public API used by external tools and future features
     pub fn default_linter(&self) -> LinterKind {
@@ -72,6 +84,18 @@ pub enum Severity {
     Info,
 }
 
+impl Severity {
+    /// Human-readable display name for the severity level
+    #[allow(dead_code)] // public API used by external tools and future features
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Severity::Error => "Error",
+            Severity::Warning => "Warning",
+            Severity::Info => "Info",
+        }
+    }
+}
+
 /// Category of a finding
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,19 +117,28 @@ pub enum Category {
 /// A single finding discovered during analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Finding {
+    /// Category of the finding (lint, security, etc.)
     pub category: Category,
+    /// Severity level
     pub severity: Severity,
+    /// Rule code identifier (e.g., "SEC001")
     pub code: String,
+    /// Human-readable description of the issue
     pub message: String,
+    /// Path to the source file
     pub file: PathBuf,
+    /// Line number where the issue starts
     pub line: Option<usize>,
+    /// Column number where the issue starts
     pub column: Option<usize>,
+    /// Suggested fix for the issue
     pub suggestion: Option<String>,
     /// AI-generated explanation (when LLM-as-Judge is enabled)
     pub ai_explanation: Option<String>,
 }
 
 impl Finding {
+    /// Create a new finding with basic fields
     pub fn new(
         category: Category,
         severity: Severity,
@@ -129,17 +162,26 @@ impl Finding {
 }
 
 /// Multi-dimensional quality scores for analyzed code
+///
+/// All scores are on a 0-100 scale, with 100 being the best.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityScores {
+    /// Security vulnerability score
     pub security: f64,
+    /// Code style and quality score
     pub code_quality: f64,
+    /// Performance optimization score
     pub performance: f64,
+    /// Test coverage score
     pub test_coverage: f64,
+    /// AI-generated code risk score
     pub ai_risk: f64,
+    /// Weighted overall score
     pub overall: f64,
 }
 
 impl QualityScores {
+    /// Create a new quality scores instance with computed weighted overall
     pub fn new(
         security: f64,
         code_quality: f64,
@@ -422,5 +464,21 @@ mod tests {
         let config = Config::default();
         assert!(config.ignore.contains(&".git".to_string()));
         assert!(config.ignore.contains(&"node_modules".to_string()));
+    }
+
+    #[test]
+    fn test_language_display_name() {
+        assert_eq!(Language::Python.display_name(), "Python");
+        assert_eq!(Language::JavaScript.display_name(), "JavaScript");
+        assert_eq!(Language::TypeScript.display_name(), "TypeScript");
+        assert_eq!(Language::Go.display_name(), "Go");
+        assert_eq!(Language::Rust.display_name(), "Rust");
+    }
+
+    #[test]
+    fn test_severity_display_name() {
+        assert_eq!(Severity::Error.display_name(), "Error");
+        assert_eq!(Severity::Warning.display_name(), "Warning");
+        assert_eq!(Severity::Info.display_name(), "Info");
     }
 }

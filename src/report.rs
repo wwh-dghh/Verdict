@@ -41,11 +41,7 @@ impl Reporter {
         // Header
         let sep = "═".repeat(60);
         buf.push_str(&format!("\n{sep}"));
-        buf.push_str(
-            "\n  Verdict — AI Code Verification Report"
-                .to_string()
-                .as_str(),
-        );
+        buf.push_str("\n  Verdict — AI Code Verification Report");
         buf.push_str(&format!("\n{sep}\n"));
 
         // Summary
