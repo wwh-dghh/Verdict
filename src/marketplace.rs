@@ -68,6 +68,11 @@ impl MarketplaceClient {
         }
     }
 
+    /// Return the plugin directory path
+    pub fn plugin_dir(&self) -> &PathBuf {
+        &self.plugin_dir
+    }
+
     /// List all available plugins in the marketplace
     pub fn list_plugins(&self) -> Result<Vec<MarketplacePlugin>> {
         // TODO: Fetch from remote marketplace API

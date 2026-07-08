@@ -200,3 +200,184 @@ impl Reporter {
         }).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn make_pipeline_result(
+        findings: Vec<Finding>,
+        scores: Option<QualityScores>,
+    ) -> PipelineResult {
+        PipelineResult {
+            stages_completed: vec![PipelineStage::Preprocess, PipelineStage::Lint],
+            results: vec![AnalysisResult {
+                path: PathBuf::from("src/test.rs"),
+                language: Some(Language::Rust),
+                findings,
+                scores,
+                duration_ms: 100,
+            }],
+            total_findings: 0,
+            failed_thresholds: vec![],
+            exit_code: 0,
+        }
+    }
+
+    fn make_finding(severity: Severity, code: &str, message: &str) -> Finding {
+        Finding::new(
+            Category::Lint,
+            severity,
+            code,
+            message,
+            PathBuf::from("src/test.rs"),
+            Some(10),
+        )
+    }
+
+    #[test]
+    fn test_reporter_new() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        // Should not panic
+        let _ = reporter;
+    }
+
+    #[test]
+    fn test_generate_json_format() {
+        let reporter = Reporter::new(OutputFormat::Json);
+        let result = make_pipeline_result(vec![], None);
+        let output = reporter.generate(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(parsed.get("results").is_some());
+        assert!(parsed.get("total_findings").is_some());
+    }
+
+    #[test]
+    fn test_generate_sarif_format() {
+        let reporter = Reporter::new(OutputFormat::Sarif);
+        let finding = make_finding(Severity::Warning, "W001", "unused variable");
+        let result = make_pipeline_result(vec![finding], None);
+        let output = reporter.generate(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["version"], "2.1.0");
+        assert!(parsed.get("runs").is_some());
+        let runs = parsed["runs"].as_array().unwrap();
+        assert_eq!(runs.len(), 1);
+        assert!(runs[0].get("tool").is_some());
+        assert!(runs[0].get("results").is_some());
+    }
+
+    #[test]
+    fn test_generate_terminal_format_no_findings() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        let result = make_pipeline_result(vec![], None);
+        let output = reporter.generate(&result).unwrap();
+        assert!(output.contains("Verdict"));
+        assert!(output.contains("Files analyzed:"));
+        assert!(output.contains("No issues found"));
+    }
+
+    #[test]
+    fn test_generate_terminal_with_errors() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        let finding = make_finding(Severity::Error, "E001", "syntax error");
+        let result = make_pipeline_result(vec![finding], None);
+        let output = reporter.generate(&result).unwrap();
+        assert!(output.contains("E001"));
+        assert!(output.contains("syntax error"));
+        assert!(output.contains("ERROR"));
+    }
+
+    #[test]
+    fn test_generate_terminal_with_warnings() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        let finding = make_finding(Severity::Warning, "W001", "unused import");
+        let result = make_pipeline_result(vec![finding], None);
+        let output = reporter.generate(&result).unwrap();
+        assert!(output.contains("W001"));
+        assert!(output.contains("unused import"));
+        assert!(output.contains("WARN"));
+    }
+
+    #[test]
+    fn test_generate_terminal_with_scores() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        let scores = QualityScores::new(95.0, 80.0, 90.0, 70.0, 85.0);
+        let result = make_pipeline_result(vec![], Some(scores));
+        let output = reporter.generate(&result).unwrap();
+        assert!(output.contains("Scores for"));
+        assert!(output.contains("/100"));
+    }
+
+    #[test]
+    fn test_sarif_contains_rule_info() {
+        let reporter = Reporter::new(OutputFormat::Sarif);
+        let finding1 = make_finding(Severity::Error, "SEC001", "SQL injection");
+        let finding2 = make_finding(Severity::Warning, "SEC001", "SQL injection");
+        let result = make_pipeline_result(vec![finding1, finding2], None);
+        let output = reporter.generate(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let rules = &parsed["runs"][0]["tool"]["driver"]["rules"];
+        // Same rule code should appear only once
+        let rules_array = rules.as_array().unwrap();
+        assert_eq!(rules_array.len(), 1);
+        assert_eq!(rules_array[0]["id"], "SEC001");
+    }
+
+    #[test]
+    fn test_sarif_severity_mapping() {
+        let reporter = Reporter::new(OutputFormat::Sarif);
+        let findings = vec![
+            make_finding(Severity::Error, "E001", "error test"),
+            make_finding(Severity::Warning, "W001", "warning test"),
+            make_finding(Severity::Info, "I001", "info test"),
+        ];
+        let result = make_pipeline_result(findings, None);
+        let output = reporter.generate(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let results = parsed["runs"][0]["results"].as_array().unwrap();
+        let levels: Vec<&str> = results
+            .iter()
+            .map(|r| r["level"].as_str().unwrap())
+            .collect();
+        assert!(levels.contains(&"error"));
+        assert!(levels.contains(&"warning"));
+        assert!(levels.contains(&"note"));
+    }
+
+    #[test]
+    fn test_sarif_with_line_numbers() {
+        let reporter = Reporter::new(OutputFormat::Sarif);
+        let finding = make_finding(Severity::Error, "E001", "test error");
+        let result = make_pipeline_result(vec![finding], None);
+        let output = reporter.generate(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let results = parsed["runs"][0]["results"].as_array().unwrap();
+        let region = &results[0]["locations"][0]["physicalLocation"]["region"];
+        assert_eq!(region["startLine"], 10);
+    }
+
+    #[test]
+    fn test_print_does_not_panic() {
+        let reporter = Reporter::new(OutputFormat::Terminal);
+        let result = make_pipeline_result(vec![], None);
+        // print writes to stdout, just verify it doesn't panic
+        reporter.print(&result).unwrap();
+    }
+
+    #[test]
+    fn test_json_output_has_all_fields() {
+        let reporter = Reporter::new(OutputFormat::Json);
+        let finding = make_finding(Severity::Info, "I001", "info finding");
+        let scores = QualityScores::new(100.0, 90.0, 80.0, 70.0, 60.0);
+        let mut result = make_pipeline_result(vec![finding], Some(scores));
+        result.total_findings = 1;
+        let output = reporter.generate(&result).unwrap();
+        let parsed: PipelineResult = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed.total_findings, 1);
+        assert_eq!(parsed.results.len(), 1);
+        assert_eq!(parsed.results[0].findings.len(), 1);
+        assert!(parsed.results[0].scores.is_some());
+    }
+}

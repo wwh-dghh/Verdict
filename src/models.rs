@@ -353,7 +353,7 @@ impl Default for Config {
 
 /// Analysis pipeline stage
 #[allow(dead_code)] // All variants are part of the public API for result reporting
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PipelineStage {
     Preprocess,
     Lint,
@@ -364,7 +364,7 @@ pub enum PipelineStage {
 }
 
 /// Overall pipeline execution result
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineResult {
     pub stages_completed: Vec<PipelineStage>,
     pub results: Vec<AnalysisResult>,

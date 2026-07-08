@@ -17,7 +17,7 @@ mod wasm_plugin;
 
 use clap::{Parser, Subcommand};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(name = "verdict")]
@@ -504,64 +504,58 @@ const RULES: &[(&str, &str, &str)] = &[
 /// Handle plugin marketplace commands
 fn cmd_plugin(command: PluginCommands) -> anyhow::Result<()> {
     let plugin_dir = get_plugin_dir()?;
+    let client = marketplace::MarketplaceClient::new(
+        "https://marketplace.verdict.dev".to_string(),
+        plugin_dir,
+    );
 
     match command {
-        PluginCommands::List { search } => cmd_plugin_list(search.as_deref()),
-        PluginCommands::Install { plugin_id } => cmd_plugin_install(&plugin_id, &plugin_dir),
-        PluginCommands::Uninstall { plugin_id } => cmd_plugin_uninstall(&plugin_id, &plugin_dir),
-        PluginCommands::ListInstalled => cmd_plugin_list_installed(&plugin_dir),
+        PluginCommands::List { search } => cmd_plugin_list(&client, search.as_deref()),
+        PluginCommands::Install { plugin_id } => cmd_plugin_install(&client, &plugin_id),
+        PluginCommands::Uninstall { plugin_id } => cmd_plugin_uninstall(&client, &plugin_id),
+        PluginCommands::ListInstalled => cmd_plugin_list_installed(&client),
     }
 }
 
-fn cmd_plugin_list(_search: Option<&str>) -> anyhow::Result<()> {
+fn cmd_plugin_list(
+    client: &marketplace::MarketplaceClient,
+    search: Option<&str>,
+) -> anyhow::Result<()> {
     println!("Verdict Plugin Marketplace\n");
     println!("Searching for plugins...");
 
-    println!("\nNo plugins found. The marketplace is coming soon!");
-    println!("In the meantime, create custom rules by placing .json files in:");
-    println!("  ~/.verdict/plugins/  (user-level)");
-    println!("  ./plugins/           (project-level)");
-    println!("\nRun 'verdict init' to generate an example plugin file.");
+    let plugins = if let Some(q) = search {
+        client.search_plugins(q)?
+    } else {
+        client.list_plugins()?
+    };
+
+    if plugins.is_empty() {
+        println!("\nNo plugins found. The marketplace is coming soon!");
+        println!("In the meantime, create custom rules by placing .json files in:");
+        println!("  ~/.verdict/plugins/  (user-level)");
+        println!("  ./plugins/           (project-level)");
+        println!("\nRun 'verdict init' to generate an example plugin file.");
+    } else {
+        println!("\n{:<20} {:<10} {:<30}", "ID", "Version", "Description");
+        println!("{}", "─".repeat(60));
+        for p in &plugins {
+            println!("{:<20} {:<10} {:<30}", p.id, p.version, p.description);
+        }
+    }
 
     Ok(())
 }
 
-fn cmd_plugin_install(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> {
+fn cmd_plugin_install(
+    client: &marketplace::MarketplaceClient,
+    plugin_id: &str,
+) -> anyhow::Result<()> {
     println!("Installing plugin '{}'...", plugin_id);
 
-    let plugin_file = plugin_dir.join(format!("{}.json", plugin_id));
+    client.install_plugin(plugin_id)?;
 
-    let content = serde_json::json!({
-        "name": plugin_id,
-        "version": "0.1.0",
-        "description": "Plugin installed from marketplace",
-        "rules": []
-    });
-
-    let content = serde_json::to_string_pretty(&content)?;
-
-    fs::create_dir_all(plugin_dir)?;
-    fs::write(&plugin_file, &content)?;
-
-    // Record installation in installed-plugins.json
-    let installed_file = plugin_dir.join("installed-plugins.json");
-    let mut installed: Vec<marketplace::InstalledPlugin> = if installed_file.exists() {
-        let c = fs::read_to_string(&installed_file)?;
-        serde_json::from_str(&c).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
-
-    if !installed.iter().any(|p| p.id == plugin_id) {
-        installed.push(marketplace::InstalledPlugin {
-            id: plugin_id.to_string(),
-            name: plugin_id.to_string(),
-            version: "0.1.0".to_string(),
-            installed_at: chrono::Utc::now().to_rfc3339(),
-        });
-        let installed_content = serde_json::to_string_pretty(&installed)?;
-        fs::write(&installed_file, installed_content)?;
-    }
+    let plugin_file = client.plugin_dir().join(format!("{}.json", plugin_id));
 
     println!("✓ Plugin '{}' installed successfully!", plugin_id);
     println!("  Location: {}", plugin_file.display());
@@ -569,64 +563,39 @@ fn cmd_plugin_install(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> 
     Ok(())
 }
 
-fn cmd_plugin_uninstall(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> {
-    let plugin_file = plugin_dir.join(format!("{}.json", plugin_id));
+fn cmd_plugin_uninstall(
+    client: &marketplace::MarketplaceClient,
+    plugin_id: &str,
+) -> anyhow::Result<()> {
+    let plugin_file = client.plugin_dir().join(format!("{}.json", plugin_id));
 
     if plugin_file.exists() {
-        fs::remove_file(&plugin_file)?;
+        client.uninstall_plugin(plugin_id)?;
         println!("✓ Plugin '{}' uninstalled successfully!", plugin_id);
     } else {
         println!("⚠ Plugin '{}' not found", plugin_id);
     }
 
-    // Remove from installed registry
-    let installed_file = plugin_dir.join("installed-plugins.json");
-    if installed_file.exists() {
-        let content = fs::read_to_string(&installed_file)?;
-        let mut installed: Vec<marketplace::InstalledPlugin> =
-            serde_json::from_str(&content).unwrap_or_default();
-        installed.retain(|p| p.id != plugin_id);
-        if installed.is_empty() {
-            let _ = fs::remove_file(&installed_file);
-        } else {
-            let _ = fs::write(&installed_file, serde_json::to_string_pretty(&installed)?);
-        }
-    }
-
     Ok(())
 }
 
-fn cmd_plugin_list_installed(plugin_dir: &Path) -> anyhow::Result<()> {
+fn cmd_plugin_list_installed(client: &marketplace::MarketplaceClient) -> anyhow::Result<()> {
     println!("Installed plugins:\n");
 
-    let installed_file = plugin_dir.join("installed-plugins.json");
+    let installed = client.list_installed()?;
 
-    if !installed_file.exists() {
+    if installed.is_empty() {
         println!("  No plugins installed yet.");
         println!("\nBrowse plugins with: verdict plugin list");
         println!("Install a plugin with: verdict plugin install <plugin-id>");
         return Ok(());
     }
 
-    let content = fs::read_to_string(&installed_file)?;
-    let installed: Vec<marketplace::InstalledPlugin> = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::warn!("failed to parse installed-plugins.json: {}", e);
-            println!("  (corrupted plugin registry, skipping)");
-            return Ok(());
-        }
-    };
-
-    if installed.is_empty() {
-        println!("  No plugins installed yet.");
-    } else {
-        for plugin in &installed {
-            println!(
-                "  {} v{} (installed: {})",
-                plugin.name, plugin.version, plugin.installed_at
-            );
-        }
+    for plugin in &installed {
+        println!(
+            "  {} v{} (installed: {})",
+            plugin.name, plugin.version, plugin.installed_at
+        );
     }
 
     Ok(())
