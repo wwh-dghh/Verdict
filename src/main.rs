@@ -393,7 +393,7 @@ fn find_git_hooks_dir() -> anyhow::Result<PathBuf> {
 fn generate_hook_script() -> String {
     if cfg!(target_os = "windows") {
         r"@echo off
-# verdict-precommit
+REM verdict-precommit
 verdict check --diff --format terminal
 if %errorlevel% neq 0 (
     echo.

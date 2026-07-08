@@ -313,11 +313,7 @@ impl Stage for AggregateStage {
         let mut results = Vec::new();
 
         for r in input {
-            let errors = r
-                .findings
-                .iter()
-                .filter(|f| f.is_error())
-                .count() as f64;
+            let errors = r.findings.iter().filter(|f| f.is_error()).count() as f64;
             let warnings = r
                 .findings
                 .iter()

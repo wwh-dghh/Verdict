@@ -2,7 +2,7 @@
 
 use crate::models::*;
 use anyhow::Result;
-use std::fs;
+use tokio::fs;
 
 use super::pipeline::Stage;
 
@@ -26,7 +26,7 @@ impl Stage for SemanticStage {
         };
 
         for r in &mut results {
-            let content = fs::read_to_string(&r.path).ok();
+            let content = fs::read_to_string(&r.path).await.ok();
             if let Some(text) = content {
                 // Limit to first 4000 chars to avoid token limits
                 let snippet: String = text.chars().take(4000).collect();

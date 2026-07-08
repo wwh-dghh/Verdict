@@ -5,7 +5,7 @@ use crate::plugin::PluginLoader;
 use crate::wasm_plugin::WasmPluginLoader;
 use anyhow::Result;
 use regex::Regex;
-use std::fs;
+use tokio::fs;
 
 use super::pipeline::Stage;
 
@@ -208,7 +208,7 @@ impl Stage for SecurityStage {
         let mut results = input.to_vec();
 
         for r in &mut results {
-            let content = fs::read_to_string(&r.path).ok();
+            let content = fs::read_to_string(&r.path).await.ok();
             if let Some(text) = content {
                 for pattern in &self.patterns {
                     // Check language filter

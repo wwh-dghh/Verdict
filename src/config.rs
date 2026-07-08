@@ -49,9 +49,9 @@ impl ConfigLoader {
                 }
                 if loaded.ai_review {
                     config.ai_review = true;
-                    if let Some(llm) = loaded.llm {
-                        config.llm = Some(llm);
-                    }
+                }
+                if loaded.llm.is_some() {
+                    config.llm = loaded.llm;
                 }
                 if loaded.output != OutputFormat::Terminal {
                     config.output = loaded.output;

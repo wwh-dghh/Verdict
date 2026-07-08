@@ -153,7 +153,10 @@ impl Reporter {
             })]),
         );
 
-        serde_json::to_string_pretty(&sarif).unwrap_or_default()
+        serde_json::to_string_pretty(&sarif).unwrap_or_else(|e| {
+            tracing::error!("failed to serialize SARIF output: {}", e);
+            "{}".to_string()
+        })
     }
 
     fn collect_rules(&self, result: &PipelineResult) -> Vec<serde_json::Value> {
