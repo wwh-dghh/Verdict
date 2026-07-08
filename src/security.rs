@@ -28,9 +28,9 @@ impl SecurityPattern {
         code: &str,
         message: &str,
         suggestion: Option<&str>,
-    ) -> Self {
-        Self {
-            regex: Regex::new(pattern).expect("invalid regex pattern"),
+    ) -> Result<Self> {
+        Ok(Self {
+            regex: Regex::new(pattern)?,
             severity,
             code: code.into(),
             message: message.into(),
@@ -38,7 +38,7 @@ impl SecurityPattern {
             languages: Vec::new(),
             include: Vec::new(),
             exclude: Vec::new(),
-        }
+        })
     }
 }
 
@@ -86,16 +86,8 @@ fn glob_match(pattern: &str, text: &str) -> bool {
                             && matches(pattern, text, p, t + 1, memo))
                 }
             }
-            '?' => {
-                t < text.len()
-                    && text[t] != '/'
-                    && matches(pattern, text, p + 1, t + 1, memo)
-            }
-            c => {
-                t < text.len()
-                    && c == text[t]
-                    && matches(pattern, text, p + 1, t + 1, memo)
-            }
+            '?' => t < text.len() && text[t] != '/' && matches(pattern, text, p + 1, t + 1, memo),
+            c => t < text.len() && c == text[t] && matches(pattern, text, p + 1, t + 1, memo),
         };
 
         memo[p][t] = Some(result);
@@ -117,8 +109,7 @@ fn find_match_line(text: &str, regex: &Regex) -> Option<usize> {
 
 /// Built-in security rules
 fn builtin_rules() -> Vec<SecurityPattern> {
-    vec![
-        // SQL Injection patterns
+    let patterns = [
         SecurityPattern::new(
             r#"(?i)(?:execute|query|exec)\s*\(\s*['"].*SELECT\s+.*['"]\s*\+"#,
             Severity::Error,
@@ -133,7 +124,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Potential SQL injection: f-string in query",
             Some("Use parameterized queries instead"),
         ),
-        // XSS patterns
         SecurityPattern::new(
             r"(?i)innerHTML\s*=",
             Severity::Error,
@@ -148,7 +138,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Potential XSS: document.write()",
             Some("Use DOM manipulation methods instead"),
         ),
-        // Hardcoded secrets
         SecurityPattern::new(
             r#"(?i)(?:api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*['"]\w{8,}['"]"#,
             Severity::Error,
@@ -163,7 +152,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Possible AWS/access key detected",
             Some("Move credentials to environment variables"),
         ),
-        // Weak crypto
         SecurityPattern::new(
             r"(?i)md5(?:hash|sum|5)?\s*\(",
             Severity::Warning,
@@ -178,7 +166,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Weak encryption algorithm (DES) detected",
             Some("Use AES-256-GCM instead"),
         ),
-        // Debug logging of sensitive data
         SecurityPattern::new(
             r"(?i)print\s*\(.*(?:password|secret|token|key)",
             Severity::Warning,
@@ -186,7 +173,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Debug print may leak sensitive data",
             Some("Remove debug prints before committing"),
         ),
-        // Unsafe eval
         SecurityPattern::new(
             r"(?i)eval\s*\(",
             Severity::Error,
@@ -194,7 +180,6 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "eval() is dangerous — potential code injection",
             Some("Use JSON.parse() or a safe alternative"),
         ),
-        // Command injection
         SecurityPattern::new(
             r"(?i)(?:subprocess|exec|system|popen|os\.system).*\+",
             Severity::Error,
@@ -202,7 +187,12 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Potential command injection: string concatenation",
             Some("Use parameterized APIs or whitelist inputs"),
         ),
-    ]
+    ];
+
+    patterns
+        .into_iter()
+        .filter_map(|p| p.ok())
+        .collect()
 }
 
 /// Stage that runs security pattern matching

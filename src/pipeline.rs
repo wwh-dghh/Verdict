@@ -129,17 +129,20 @@ impl Pipeline {
                 .map(|s| s.overall as u32)
                 .unwrap_or(u32::MAX)
         }) {
-            let scores = lowest.scores.as_ref().unwrap();
-            let mut failures = Vec::new();
-            // We don't have access to config.thresholds here, so we log
-            // threshold info for now — actual gating is done in main.rs
-            if scores.security < 50.0 {
-                failures.push(format!(
-                    "security score {:.0} below critical threshold",
-                    scores.security
-                ));
+            if let Some(scores) = lowest.scores.as_ref() {
+                let mut failures = Vec::new();
+                // We don't have access to config.thresholds here, so we log
+                // threshold info for now — actual gating is done in main.rs
+                if scores.security < 50.0 {
+                    failures.push(format!(
+                        "security score {:.0} below critical threshold",
+                        scores.security
+                    ));
+                }
+                failures
+            } else {
+                Vec::new()
             }
-            failures
         } else {
             Vec::new()
         };
