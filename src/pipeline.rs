@@ -129,11 +129,12 @@ impl Pipeline {
         let total_findings: usize = results.iter().map(|r| r.findings.len()).sum();
 
         // Check thresholds against the lowest-scoring file
-        let failed_thresholds: Vec<String> = if let Some(lowest) = results.iter().min_by_key(|r| {
-            r.scores
-                .as_ref()
-                .map(|s| s.overall as u32)
-                .unwrap_or(u32::MAX)
+        let failed_thresholds: Vec<String> = if let Some(lowest) = results.iter().min_by(|a, b| {
+            let a_score = a.scores.as_ref().map(|s| s.overall).unwrap_or(f64::MAX);
+            let b_score = b.scores.as_ref().map(|s| s.overall).unwrap_or(f64::MAX);
+            a_score
+                .partial_cmp(&b_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
             if let Some(scores) = lowest.scores.as_ref() {
                 let mut failures = Vec::new();

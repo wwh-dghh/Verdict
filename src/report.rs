@@ -155,7 +155,7 @@ impl Reporter {
 
         serde_json::to_string_pretty(&sarif).unwrap_or_else(|e| {
             tracing::error!("failed to serialize SARIF output: {}", e);
-            "{}".to_string()
+            format!("{{\"error\": \"SARIF serialization failed: {}\"}}", e)
         })
     }
 
