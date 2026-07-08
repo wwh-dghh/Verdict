@@ -76,7 +76,10 @@ impl SemanticStage {
 }
 
 async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .ok()?;
 
     let is_anthropic = config.provider == "anthropic";
     let url = if is_anthropic {

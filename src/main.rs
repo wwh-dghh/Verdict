@@ -190,6 +190,45 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
         std::process::exit(1);
     }
 
+    // Check quality thresholds
+    let mut threshold_failures = Vec::new();
+    for r in &result.results {
+        if let Some(scores) = &r.scores {
+            if scores.security < config.thresholds.security {
+                threshold_failures.push(format!(
+                    "{}: security {:.0} < threshold {:.0}",
+                    r.path.display(),
+                    scores.security,
+                    config.thresholds.security
+                ));
+            }
+            if scores.code_quality < config.thresholds.code_quality {
+                threshold_failures.push(format!(
+                    "{}: code_quality {:.0} < threshold {:.0}",
+                    r.path.display(),
+                    scores.code_quality,
+                    config.thresholds.code_quality
+                ));
+            }
+            if scores.overall < config.thresholds.overall {
+                threshold_failures.push(format!(
+                    "{}: overall {:.0} < threshold {:.0}",
+                    r.path.display(),
+                    scores.overall,
+                    config.thresholds.overall
+                ));
+            }
+        }
+    }
+
+    if !threshold_failures.is_empty() {
+        println!("\n✗ Analysis failed — threshold violations:");
+        for f in &threshold_failures {
+            println!("  - {f}");
+        }
+        std::process::exit(1);
+    }
+
     println!("\n✓ Analysis passed.");
     Ok(())
 }

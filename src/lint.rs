@@ -389,8 +389,8 @@ impl ClippyAdapter {
             .parent()
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."));
-        loop {
-            // Guard against empty path (root of filesystem or Windows drive root)
+        for _ in 0..50 {
+            // Safety: limit iterations to prevent infinite loop on edge cases
             if current.as_os_str().is_empty() {
                 break;
             }

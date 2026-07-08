@@ -540,4 +540,17 @@ def get_user(id):
         assert!(glob_match("*", "anything"));
         assert!(glob_match("*", ""));
     }
+
+    #[test]
+    fn test_glob_match_double_star_at_end() {
+        assert!(glob_match("src/**", "src/a/b.rs"));
+        assert!(glob_match("src/**", "src/file.rs"));
+        assert!(!glob_match("src/**", "other/file.rs"));
+    }
+
+    #[test]
+    fn test_glob_match_double_star_at_start() {
+        assert!(glob_match("**/test", "src/test"));
+        assert!(glob_match("**/test", "a/b/test"));
+    }
 }
