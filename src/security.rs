@@ -226,8 +226,8 @@ impl Stage for SecurityStage {
                     }
 
                     // Check file include/exclude patterns
+                    let path_str = r.path.to_string_lossy();
                     if !pattern.include.is_empty() {
-                        let path_str = r.path.to_string_lossy();
                         let matches_include =
                             pattern.include.iter().any(|p| glob_match(p, &path_str));
                         if !matches_include {
@@ -235,7 +235,6 @@ impl Stage for SecurityStage {
                         }
                     }
                     if !pattern.exclude.is_empty() {
-                        let path_str = r.path.to_string_lossy();
                         let matches_exclude =
                             pattern.exclude.iter().any(|p| glob_match(p, &path_str));
                         if matches_exclude {

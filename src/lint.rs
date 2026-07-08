@@ -8,6 +8,15 @@ use tokio::process::Command;
 
 use super::pipeline::Stage;
 
+/// Map a diagnostic severity string to our Severity enum
+fn map_severity(s: Option<&str>, default: Severity) -> Severity {
+    match s {
+        Some("error") => Severity::Error,
+        Some("warning") => Severity::Warning,
+        _ => default,
+    }
+}
+
 /// Lint stage that delegates to installed linters
 pub struct LintStage {
     linters: Vec<Box<dyn LintAdapter>>,
@@ -220,11 +229,7 @@ fn parse_biome_output(output: &[u8], file: &Path) -> Vec<Finding> {
 
     let mut findings = Vec::new();
     for diag in report.diagnostics {
-        let severity = match diag.severity.as_deref() {
-            Some("error") | None => Severity::Error,
-            Some("warning") => Severity::Warning,
-            _ => Severity::Info,
-        };
+        let severity = map_severity(diag.severity.as_deref(), Severity::Error);
 
         let line = diag.location.and_then(|l| l.line);
         let code = diag.code.unwrap_or_else(|| "BIOME".to_string());
@@ -288,12 +293,7 @@ fn parse_oxlint_output(output: &[u8], file: &Path) -> Vec<Finding> {
 
     let mut findings = Vec::new();
     for diag in report.results {
-        let severity = match diag.severity.as_deref() {
-            Some("error") | None => Severity::Error,
-            Some("warning") => Severity::Warning,
-            Some("info") => Severity::Info,
-            _ => Severity::Info,
-        };
+        let severity = map_severity(diag.severity.as_deref(), Severity::Error);
 
         let code = diag.code.unwrap_or_else(|| "OXLLINT".to_string());
 
@@ -361,11 +361,7 @@ fn parse_golangci_output(output: &[u8], file: &Path) -> Vec<Finding> {
 
     let mut findings = Vec::new();
     for issue in report.issues.unwrap_or_default() {
-        let severity = match issue.severity.as_deref() {
-            Some("error") => Severity::Error,
-            Some("warning") => Severity::Warning,
-            _ => Severity::Info,
-        };
+        let severity = map_severity(issue.severity.as_deref(), Severity::Info);
 
         let line = issue.location.as_ref().and_then(|l| l.line).unwrap_or(1);
 
