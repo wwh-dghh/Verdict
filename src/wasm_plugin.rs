@@ -5,7 +5,6 @@
 
 use anyhow::{Context, Result};
 use std::path::Path;
-use wasmtime::Store;
 
 /// A WASM plugin that provides custom security rules
 pub struct WasmPlugin {
@@ -57,23 +56,13 @@ impl WasmPlugin {
         _text: &str,
         _file_path: &str,
     ) -> Result<Vec<crate::models::Finding>> {
-        // Create a store with wasi
-        let _store = Store::new(&self.engine, ());
-
         // TODO: Implement actual WASM plugin execution
         // This is a skeleton — the full implementation would:
         // 1. Instantiate the WASM module
         // 2. Call the plugin's rule evaluation function
         // 3. Parse the results into Finding structs
         // 4. Handle errors gracefully
-
-        tracing::debug!(
-            "WASM plugin '{}' executed for file '{}'",
-            self.name,
-            _file_path
-        );
-
-        Ok(vec![]) // Placeholder — no findings yet
+        Ok(vec![])
     }
 }
 

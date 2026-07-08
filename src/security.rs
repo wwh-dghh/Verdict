@@ -189,10 +189,7 @@ fn builtin_rules() -> Vec<SecurityPattern> {
         ),
     ];
 
-    patterns
-        .into_iter()
-        .filter_map(|p| p.ok())
-        .collect()
+    patterns.into_iter().filter_map(|p| p.ok()).collect()
 }
 
 /// Stage that runs security pattern matching

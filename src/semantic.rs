@@ -122,3 +122,20 @@ async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
         .and_then(|c| c.as_str())
         .map(String::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_llm_config_struct_exists() {
+        let config = LLMConfig {
+            provider: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            max_tokens: 500,
+        };
+        assert_eq!(config.provider, "openai");
+        assert_eq!(config.max_tokens, 500);
+    }
+}
