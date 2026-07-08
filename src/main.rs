@@ -499,6 +499,26 @@ fn cmd_plugin_install(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> 
     fs::create_dir_all(plugin_dir)?;
     fs::write(&plugin_file, &content)?;
 
+    // Record installation in installed-plugins.json
+    let installed_file = plugin_dir.join("installed-plugins.json");
+    let mut installed: Vec<marketplace::InstalledPlugin> = if installed_file.exists() {
+        let c = fs::read_to_string(&installed_file)?;
+        serde_json::from_str(&c).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    if !installed.iter().any(|p| p.id == plugin_id) {
+        installed.push(marketplace::InstalledPlugin {
+            id: plugin_id.to_string(),
+            name: plugin_id.to_string(),
+            version: "0.1.0".to_string(),
+            installed_at: chrono::Utc::now().to_rfc3339(),
+        });
+        let installed_content = serde_json::to_string_pretty(&installed)?;
+        fs::write(&installed_file, installed_content)?;
+    }
+
     println!("✓ Plugin '{}' installed successfully!", plugin_id);
     println!("  Location: {}", plugin_file.display());
 
@@ -513,6 +533,20 @@ fn cmd_plugin_uninstall(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()
         println!("✓ Plugin '{}' uninstalled successfully!", plugin_id);
     } else {
         println!("⚠ Plugin '{}' not found", plugin_id);
+    }
+
+    // Remove from installed registry
+    let installed_file = plugin_dir.join("installed-plugins.json");
+    if installed_file.exists() {
+        let content = fs::read_to_string(&installed_file)?;
+        let mut installed: Vec<marketplace::InstalledPlugin> =
+            serde_json::from_str(&content).unwrap_or_default();
+        installed.retain(|p| p.id != plugin_id);
+        if installed.is_empty() {
+            let _ = fs::remove_file(&installed_file);
+        } else {
+            let _ = fs::write(&installed_file, serde_json::to_string_pretty(&installed)?);
+        }
     }
 
     Ok(())
