@@ -88,7 +88,7 @@ impl PluginLoader {
 
         // Environment variable override
         if let Ok(env_dirs) = std::env::var("VERDICT_PLUGINS") {
-            for dir in env_dirs.split(';').filter(|s| !s.is_empty()) {
+            for dir in env_dirs.split(&[';', ':'][..]).filter(|s| !s.is_empty()) {
                 dirs.push(PathBuf::from(dir));
             }
         }

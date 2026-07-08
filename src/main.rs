@@ -267,7 +267,13 @@ fn cmd_plugins() -> anyhow::Result<()> {
 
     // JSON plugins
     let json_loader = plugin::PluginLoader::new();
-    let json_plugins = json_loader.load_all().unwrap_or_default();
+    let json_plugins = match json_loader.load_all() {
+        Ok(plugins) => plugins,
+        Err(e) => {
+            tracing::warn!("failed to load JSON plugins: {}", e);
+            vec![]
+        }
+    };
     if json_plugins.is_empty() {
         println!("  (no JSON plugins found)");
     } else {
@@ -289,7 +295,13 @@ fn cmd_plugins() -> anyhow::Result<()> {
     // WASM plugins
     println!();
     let wasm_loader = wasm_plugin::WasmPluginLoader::new();
-    let wasm_plugins = wasm_loader.load_all().unwrap_or_default();
+    let wasm_plugins = match wasm_loader.load_all() {
+        Ok(plugins) => plugins,
+        Err(e) => {
+            tracing::warn!("failed to load WASM plugins: {}", e);
+            vec![]
+        }
+    };
     if wasm_plugins.is_empty() {
         println!("  (no WASM plugins found)");
     } else {

@@ -28,8 +28,7 @@ impl Stage for SemanticStage {
         for r in &mut results {
             let content = fs::read_to_string(&r.path).await.ok();
             if let Some(text) = content {
-                // Limit to first 4000 chars to avoid token limits
-                let snippet: String = text.chars().take(4000).collect();
+                let snippet: String = text.chars().take(config.max_input_chars).collect();
 
                 let lang_name = r
                     .language
@@ -134,6 +133,7 @@ mod tests {
             api_key: "test-key".to_string(),
             model: "gpt-4o-mini".to_string(),
             max_tokens: 500,
+            max_input_chars: 4000,
         };
         assert_eq!(config.provider, "openai");
         assert_eq!(config.max_tokens, 500);
