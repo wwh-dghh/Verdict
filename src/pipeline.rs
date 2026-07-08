@@ -204,7 +204,7 @@ impl Stage for PreprocessStage {
                         .await
                         .unwrap_or_else(|_| target.clone())
                 } else {
-                    target.parent().unwrap_or(target).to_path_buf()
+                    target.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| target.to_path_buf())
                 };
 
                 if crate::git_diff::is_git_repo_async(&root).await {
@@ -340,7 +340,6 @@ impl Stage for AggregateStage {
                         Severity::Error => 15.0,
                         Severity::Warning => 5.0,
                         Severity::Info => 2.0,
-                        _ => 0.0,
                     };
                     (pen + p, cnt + 1)
                 });
@@ -361,7 +360,6 @@ impl Stage for AggregateStage {
                         Severity::Error => 20.0,
                         Severity::Warning => 8.0,
                         Severity::Info => 3.0,
-                        _ => 0.0,
                     };
                     (pen + p, cnt + 1)
                 });
@@ -402,7 +400,6 @@ impl Stage for AggregateStage {
                         Severity::Error => 10.0,
                         Severity::Warning => 3.0,
                         Severity::Info => 1.0,
-                        _ => 0.0,
                     };
                     (pen + p, cnt + 1)
                 });

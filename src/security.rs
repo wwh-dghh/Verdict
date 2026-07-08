@@ -326,7 +326,13 @@ impl SecurityStage {
 
         // Load WASM plugins
         let wasm_loader = WasmPluginLoader::new();
-        let wasm_plugins = wasm_loader.load_all().unwrap_or_default();
+        let wasm_plugins = match wasm_loader.load_all() {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::warn!("failed to load WASM plugins: {}", e);
+                Vec::new()
+            }
+        };
 
         tracing::info!(
             "security stage initialized: {} regex patterns, {} WASM plugins",
