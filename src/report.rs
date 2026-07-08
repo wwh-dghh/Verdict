@@ -145,7 +145,7 @@ impl Reporter {
                     "driver": {
                         "name": "verdict",
                         "version": env!("CARGO_PKG_VERSION"),
-                        "informationUri": "https://github.com/verdict-tool/verdict",
+                        "informationUri": "https://github.com/wwh-dghh/verdict",
                         "rules": self.collect_rules(result)
                     }
                 },

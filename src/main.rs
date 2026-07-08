@@ -471,7 +471,10 @@ fn parse_format(s: &str) -> models::OutputFormat {
     match s {
         "json" => models::OutputFormat::Json,
         "sarif" => models::OutputFormat::Sarif,
-        _ => models::OutputFormat::Terminal,
+        other => {
+            tracing::warn!("unknown output format '{}', defaulting to terminal", other);
+            models::OutputFormat::Terminal
+        }
     }
 }
 
