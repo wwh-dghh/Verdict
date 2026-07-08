@@ -88,6 +88,7 @@ pub async fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Res
 }
 
 /// Get the git repository root from a given path
+#[allow(dead_code)]
 pub fn find_repo_root(from: &Path) -> Result<PathBuf> {
     let output = std::process::Command::new("git")
         .arg("rev-parse")
@@ -112,6 +113,7 @@ pub fn find_repo_root(from: &Path) -> Result<PathBuf> {
 }
 
 /// Check if the given path is inside a git repository
+#[allow(dead_code)]
 pub fn is_git_repo(path: &Path) -> bool {
     std::process::Command::new("git")
         .arg("rev-parse")
