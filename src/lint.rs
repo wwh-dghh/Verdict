@@ -409,7 +409,6 @@ impl ClippyAdapter {
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."));
         for _ in 0..50 {
-            // Safety: limit iterations to prevent infinite loop on edge cases
             if current.as_os_str().is_empty() {
                 break;
             }
@@ -422,7 +421,12 @@ impl ClippyAdapter {
                 None => break,
             }
         }
-        // Fall back to the file's parent directory
+        // Iteration limit reached — log a warning and fall back
+        tracing::warn!(
+            "could not find Cargo.toml within 50 ancestor directories of {}; \
+             falling back to parent directory",
+            file_path.display()
+        );
         file_path
             .parent()
             .map(Path::to_path_buf)

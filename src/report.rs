@@ -179,25 +179,35 @@ impl Reporter {
     }
 
     fn collect_results(&self, result: &PipelineResult) -> Vec<serde_json::Value> {
-        result.results.iter().flat_map(|r| {
-            r.findings.iter().map(move |f| {
-                serde_json::json!({
-                    "ruleId": f.code,
-                    "level": match f.severity {
-                        Severity::Error => "error",
-                        Severity::Warning => "warning",
-                        Severity::Info => "note",
-                    },
-                    "message": {"text": f.message},
-                    "locations": [{
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": r.path.to_string_lossy().to_string()},
-                            "region": f.line.map(|l| serde_json::json!({"startLine": l})).unwrap_or_default()
-                        }
-                    }]
+        result
+            .results
+            .iter()
+            .flat_map(|r| {
+                r.findings.iter().map(move |f| {
+                    serde_json::json!({
+                        "ruleId": f.code,
+                        "level": match f.severity {
+                            Severity::Error => "error",
+                            Severity::Warning => "warning",
+                            Severity::Info => "note",
+                        },
+                        "message": {"text": f.message},
+                        "locations": [{
+                            "physicalLocation": {
+                                "artifactLocation": {"uri": r.path.to_string_lossy().to_string()},
+                                "region": f.line.map(|l| {
+                                    let mut region = serde_json::json!({"startLine": l});
+                                    if let Some(col) = f.column {
+                                        region["startColumn"] = serde_json::json!(col);
+                                    }
+                                    region
+                                }).unwrap_or_default()
+                            }
+                        }]
+                    })
                 })
             })
-        }).collect()
+            .collect()
     }
 }
 

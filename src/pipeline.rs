@@ -200,16 +200,27 @@ impl Stage for PreprocessStage {
 
             for target in &self.targets {
                 let root = if target.is_dir() {
-                    crate::git_diff::find_repo_root_async(target)
-                        .await
-                        .unwrap_or_else(|_| target.clone())
+                    match crate::git_diff::find_repo_root_async(target).await {
+                        Ok(root) => root,
+                        Err(e) => {
+                            tracing::warn!(
+                                "git repo root not found for {}: {}, skipping diff mode",
+                                target.display(),
+                                e
+                            );
+                            git_failed = true;
+                            continue;
+                        }
+                    }
                 } else {
                     // For files, try parent first; fall back to cwd if no parent
                     target
                         .parent()
                         .map(|p| p.to_path_buf())
                         .filter(|p| !p.as_os_str().is_empty())
-                        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+                        .unwrap_or_else(|| {
+                            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                        })
                 };
 
                 if crate::git_diff::is_git_repo_async(&root).await {
