@@ -44,8 +44,8 @@ impl ConfigLoader {
                 if !loaded.linters.is_empty() {
                     config.linters = loaded.linters;
                 }
-                if loaded.security_scan != config.security_scan {
-                    config.security_scan = loaded.security_scan;
+                if !loaded.security_scan {
+                    config.security_scan = false;
                 }
                 if loaded.ai_review {
                     config.ai_review = true;
@@ -61,6 +61,9 @@ impl ConfigLoader {
                 }
                 if !loaded.ignore.is_empty() {
                     config.ignore = loaded.ignore;
+                }
+                if !loaded.thresholds.is_default() {
+                    config.thresholds = loaded.thresholds;
                 }
 
                 tracing::info!("loaded config from {}", path.display());

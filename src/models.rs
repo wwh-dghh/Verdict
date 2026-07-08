@@ -234,6 +234,15 @@ pub struct Thresholds {
     pub overall: f64,
 }
 
+impl Thresholds {
+    /// Check if any threshold differs from the default values
+    pub fn is_default(&self) -> bool {
+        (self.security - 70.0).abs() < f64::EPSILON
+            && (self.code_quality - 60.0).abs() < f64::EPSILON
+            && (self.overall - 50.0).abs() < f64::EPSILON
+    }
+}
+
 fn default_security_threshold() -> f64 {
     70.0
 }

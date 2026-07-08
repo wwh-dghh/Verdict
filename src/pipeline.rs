@@ -76,11 +76,16 @@ impl Pipeline {
 
         // Preprocess stage — discover target files
         let preprocess = PreprocessStage::new(targets, ignore_patterns, self.diff_mode);
+        let preprocess_start = Instant::now();
         let mut results: Vec<AnalysisResult> = preprocess
             .execute(&[])
             .await
             .context("preprocess stage failed")?;
         stages_completed.push(PipelineStage::Preprocess);
+        let preprocess_duration = preprocess_start.elapsed().as_millis() as u64;
+        results.iter_mut().for_each(|r| {
+            r.duration_ms += preprocess_duration;
+        });
 
         // Run each configured stage in sequence
         for stage in &self.stages {
@@ -92,6 +97,10 @@ impl Pipeline {
                 .with_context(|| format!("stage '{}' failed", stage.name()))?;
             let elapsed = stage_start.elapsed();
             tracing::info!("stage '{}' completed in {:?}", stage.name(), elapsed);
+
+            // Add duration to each result
+            let ms = elapsed.as_millis() as u64;
+            results.iter_mut().for_each(|r| r.duration_ms += ms);
 
             // Track the completed stage by name
             match stage.name() {
@@ -113,6 +122,28 @@ impl Pipeline {
         let duration = start.elapsed();
         let total_findings: usize = results.iter().map(|r| r.findings.len()).sum();
 
+        // Check thresholds against the lowest-scoring file
+        let failed_thresholds: Vec<String> = if let Some(lowest) = results.iter().min_by_key(|r| {
+            r.scores
+                .as_ref()
+                .map(|s| s.overall as u32)
+                .unwrap_or(u32::MAX)
+        }) {
+            let scores = lowest.scores.as_ref().unwrap();
+            let mut failures = Vec::new();
+            // We don't have access to config.thresholds here, so we log
+            // threshold info for now — actual gating is done in main.rs
+            if scores.security < 50.0 {
+                failures.push(format!(
+                    "security score {:.0} below critical threshold",
+                    scores.security
+                ));
+            }
+            failures
+        } else {
+            Vec::new()
+        };
+
         tracing::info!(
             "pipeline completed in {:?}: {} files, {} findings",
             duration,
@@ -124,7 +155,7 @@ impl Pipeline {
             stages_completed,
             results,
             total_findings,
-            failed_thresholds: vec![],
+            failed_thresholds,
             exit_code: 0,
         })
     }
@@ -284,15 +315,25 @@ impl Stage for AggregateStage {
             };
             let code_quality = code_quality.clamp(0.0, 100.0);
 
-            // Security defaults to 100 if no security findings
-            let security = if r
+            // Security score: penalize based on number and severity of findings
+            let sec_findings: Vec<_> = r
                 .findings
                 .iter()
-                .any(|f| matches!(f.category, Category::Security))
-            {
-                50.0
-            } else {
+                .filter(|f| matches!(f.category, Category::Security))
+                .collect();
+
+            let security = if sec_findings.is_empty() {
                 100.0
+            } else {
+                let penalty = sec_findings
+                    .iter()
+                    .map(|f| match f.severity {
+                        Severity::Error => 15.0,
+                        Severity::Warning => 5.0,
+                        Severity::Info => 2.0,
+                    })
+                    .sum::<f64>();
+                (100.0 - penalty).clamp(0.0, 100.0)
             };
 
             let scores = QualityScores::new(
@@ -401,10 +442,46 @@ mod tests {
         let input = vec![make_result("src/lib.rs", vec![finding])];
         let result = stage.execute(&input).await.unwrap();
         let scores = result[0].scores.as_ref().unwrap();
-        // Has a security finding -> security score should drop
-        assert_eq!(scores.security, 50.0);
+        // 1 error security finding -> 100 - 15 = 85
+        assert_eq!(scores.security, 85.0);
         // Errors pull code_quality down
         assert!(scores.code_quality < 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_stage_multiple_security_findings_drop_more() {
+        let stage = AggregateStage;
+        let findings = vec![
+            Finding::new(
+                Category::Security,
+                Severity::Error,
+                "SEC001",
+                "SQL injection",
+                PathBuf::from("src/lib.rs"),
+                Some(1),
+            ),
+            Finding::new(
+                Category::Security,
+                Severity::Error,
+                "SEC003",
+                "Hardcoded secret",
+                PathBuf::from("src/lib.rs"),
+                Some(5),
+            ),
+            Finding::new(
+                Category::Security,
+                Severity::Warning,
+                "SEC004",
+                "Weak crypto",
+                PathBuf::from("src/lib.rs"),
+                Some(10),
+            ),
+        ];
+        let input = vec![make_result("src/lib.rs", findings)];
+        let result = stage.execute(&input).await.unwrap();
+        let scores = result[0].scores.as_ref().unwrap();
+        // 2 errors (15*2=30) + 1 warning (5) = 35 penalty -> 100 - 35 = 65
+        assert_eq!(scores.security, 65.0);
     }
 
     #[tokio::test]
