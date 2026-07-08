@@ -50,17 +50,16 @@ impl Stage for SemanticStage {
 
                 let response = call_llm(config, &prompt).await;
                 if let Some(ai_text) = response {
-                    r.findings.push(Finding {
-                        category: Category::AiSemantic,
-                        severity: Severity::Info,
-                        code: "SEM001".into(),
-                        message: "AI semantic review completed".into(),
-                        file: r.path.clone(),
-                        line: None,
-                        column: None,
-                        suggestion: None,
-                        ai_explanation: Some(ai_text),
-                    });
+                    let mut finding = Finding::new(
+                        Category::AiSemantic,
+                        Severity::Info,
+                        "SEM001",
+                        "AI semantic review completed",
+                        r.path.clone(),
+                        None,
+                    );
+                    finding.ai_explanation = Some(ai_text);
+                    r.findings.push(finding);
                 }
             }
         }

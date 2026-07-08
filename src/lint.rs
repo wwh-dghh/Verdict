@@ -54,6 +54,7 @@ impl Stage for LintStage {
 }
 
 impl LintStage {
+    /// Create a new lint stage, auto-detecting available linters on the system
     pub fn new() -> Self {
         let mut linters: Vec<Box<dyn LintAdapter>> = Vec::new();
 
@@ -224,8 +225,6 @@ impl LintAdapter for BiomeAdapter {
 fn parse_biome_output(output: &[u8], file: &Path) -> Vec<Finding> {
     #[derive(Deserialize)]
     struct BiomeDiagnostic {
-        #[allow(dead_code)]
-        category: Option<String>,
         message: String,
         code: Option<String>,
         severity: Option<String>,

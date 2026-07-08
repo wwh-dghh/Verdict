@@ -473,6 +473,18 @@ mod tests {
     }
 
     #[test]
+    fn test_thresholds_is_default() {
+        let thresholds = Thresholds::default();
+        assert!(thresholds.is_default());
+
+        let modified = Thresholds {
+            security: 80.0,
+            ..Default::default()
+        };
+        assert!(!modified.is_default());
+    }
+
+    #[test]
     fn test_severity_ordering() {
         assert!(Severity::Error < Severity::Warning);
         assert!(Severity::Warning < Severity::Info);

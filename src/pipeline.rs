@@ -20,6 +20,7 @@ pub struct PipelineBuilder {
 }
 
 impl PipelineBuilder {
+    /// Create a new pipeline builder with no stages configured
     pub fn new() -> Self {
         Self {
             stages: vec![],
@@ -27,29 +28,34 @@ impl PipelineBuilder {
         }
     }
 
+    /// Enable or disable git diff mode (only analyze changed files)
     pub fn with_diff_mode(mut self, enabled: bool) -> Self {
         self.diff_mode = enabled;
         self
     }
 
+    /// Add the lint stage to the pipeline
     pub fn with_lint(mut self) -> Self {
         use crate::lint::LintStage;
         self.stages.push(Box::new(LintStage::new()));
         self
     }
 
+    /// Add the security scanning stage to the pipeline
     pub fn with_security(mut self) -> Self {
         use crate::security::SecurityStage;
         self.stages.push(Box::new(SecurityStage::new()));
         self
     }
 
+    /// Add the AI semantic review stage to the pipeline
     pub fn with_semantic(mut self, llm_config: Option<LLMConfig>) -> Self {
         use crate::semantic::SemanticStage;
         self.stages.push(Box::new(SemanticStage::new(llm_config)));
         self
     }
 
+    /// Build the pipeline
     pub fn build(self) -> Pipeline {
         Pipeline {
             stages: self.stages,
@@ -172,6 +178,16 @@ struct PreprocessStage {
     diff_mode: bool,
 }
 
+fn new_analysis_result(path: PathBuf, lang: Language) -> AnalysisResult {
+    AnalysisResult {
+        path,
+        language: Some(lang),
+        findings: Vec::new(),
+        scores: None,
+        duration_ms: 0,
+    }
+}
+
 impl PreprocessStage {
     fn new(targets: Vec<PathBuf>, ignore_patterns: Vec<String>, diff_mode: bool) -> Self {
         Self {
@@ -252,13 +268,7 @@ impl Stage for PreprocessStage {
             } else if !changed_files.is_empty() {
                 for path in changed_files {
                     if let Some(lang) = Language::from_path(&path) {
-                        results.push(AnalysisResult {
-                            path,
-                            language: Some(lang),
-                            findings: Vec::new(),
-                            scores: None,
-                            duration_ms: 0,
-                        });
+                        results.push(new_analysis_result(path, lang));
                     }
                 }
 
@@ -276,13 +286,7 @@ impl Stage for PreprocessStage {
             if target.is_file() {
                 // Single file target
                 if let Some(lang) = Language::from_path(target) {
-                    results.push(AnalysisResult {
-                        path: target.clone(),
-                        language: Some(lang),
-                        findings: Vec::new(),
-                        scores: None,
-                        duration_ms: 0,
-                    });
+                    results.push(new_analysis_result(target.clone(), lang));
                 }
             } else if target.is_dir() {
                 // Walk directory, collecting supported files
@@ -299,13 +303,7 @@ impl Stage for PreprocessStage {
                     if entry.file_type().is_file() {
                         let path = entry.path().to_path_buf();
                         if let Some(lang) = Language::from_path(&path) {
-                            results.push(AnalysisResult {
-                                path,
-                                language: Some(lang),
-                                findings: Vec::new(),
-                                scores: None,
-                                duration_ms: 0,
-                            });
+                            results.push(new_analysis_result(path, lang));
                         }
                     }
                 }

@@ -136,6 +136,10 @@ impl MarketplaceClient {
 
     /// List all installed plugins
     pub fn list_installed(&self) -> Result<Vec<InstalledPlugin>> {
+        self.read_installed()
+    }
+
+    fn read_installed(&self) -> Result<Vec<InstalledPlugin>> {
         let installed_file = self.plugin_dir.join("installed-plugins.json");
 
         if !installed_file.exists() {
@@ -158,25 +162,20 @@ impl MarketplaceClient {
         Ok(installed)
     }
 
-    fn record_install(&self, plugin_id: &str) -> Result<()> {
+    fn write_installed(&self, installed: &[InstalledPlugin]) -> Result<()> {
         let installed_file = self.plugin_dir.join("installed-plugins.json");
+        let content = serde_json::to_string_pretty(installed)?;
+        fs::write(&installed_file, content).with_context(|| {
+            format!(
+                "failed to write installed plugins file: {}",
+                installed_file.display()
+            )
+        })?;
+        Ok(())
+    }
 
-        let mut installed: Vec<InstalledPlugin> = if installed_file.exists() {
-            let content = fs::read_to_string(&installed_file).with_context(|| {
-                format!(
-                    "failed to read installed plugins file: {}",
-                    installed_file.display()
-                )
-            })?;
-            serde_json::from_str(&content).with_context(|| {
-                format!(
-                    "failed to parse installed plugins file: {}",
-                    installed_file.display()
-                )
-            })?
-        } else {
-            vec![]
-        };
+    fn record_install(&self, plugin_id: &str) -> Result<()> {
+        let mut installed = self.read_installed()?;
 
         if installed.iter().any(|p| p.id == plugin_id) {
             return Ok(());
@@ -190,46 +189,15 @@ impl MarketplaceClient {
             installed_at: now,
         });
 
-        let content = serde_json::to_string_pretty(&installed)?;
-        fs::write(&installed_file, content).with_context(|| {
-            format!(
-                "failed to write installed plugins file: {}",
-                installed_file.display()
-            )
-        })?;
+        self.write_installed(&installed)?;
 
         Ok(())
     }
 
     fn remove_install_record(&self, plugin_id: &str) -> Result<()> {
-        let installed_file = self.plugin_dir.join("installed-plugins.json");
-
-        if !installed_file.exists() {
-            return Ok(());
-        }
-
-        let content = fs::read_to_string(&installed_file).with_context(|| {
-            format!(
-                "failed to read installed plugins file: {}",
-                installed_file.display()
-            )
-        })?;
-        let mut installed: Vec<InstalledPlugin> =
-            serde_json::from_str(&content).with_context(|| {
-                format!(
-                    "failed to parse installed plugins file: {}",
-                    installed_file.display()
-                )
-            })?;
+        let mut installed = self.read_installed()?;
         installed.retain(|p| p.id != plugin_id);
-
-        let content = serde_json::to_string_pretty(&installed)?;
-        fs::write(&installed_file, content).with_context(|| {
-            format!(
-                "failed to write installed plugins file: {}",
-                installed_file.display()
-            )
-        })?;
+        self.write_installed(&installed)?;
 
         Ok(())
     }

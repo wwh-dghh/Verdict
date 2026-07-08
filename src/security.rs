@@ -281,6 +281,7 @@ impl Stage for SecurityStage {
 }
 
 impl SecurityStage {
+    /// Create a new security stage with built-in rules and loaded plugins
     pub fn new() -> Self {
         let mut patterns = builtin_rules();
 
