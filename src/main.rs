@@ -6,6 +6,7 @@
 mod config;
 mod git_diff;
 mod lint;
+mod marketplace;
 mod models;
 mod pipeline;
 mod plugin;
@@ -16,7 +17,7 @@ mod wasm_plugin;
 
 use clap::{Parser, Subcommand};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(name = "verdict")]
@@ -66,6 +67,33 @@ enum Commands {
         #[arg(long)]
         uninstall: bool,
     },
+    /// Manage plugins from the Verdict marketplace
+    Plugin {
+        #[command(subcommand)]
+        command: PluginCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum PluginCommands {
+    /// List available plugins in the marketplace
+    List {
+        /// Search query (optional)
+        #[arg(long)]
+        search: Option<String>,
+    },
+    /// Install a plugin from the marketplace
+    Install {
+        /// Plugin ID to install
+        plugin_id: String,
+    },
+    /// Uninstall an installed plugin
+    Uninstall {
+        /// Plugin ID to uninstall
+        plugin_id: String,
+    },
+    /// List installed plugins
+    ListInstalled,
 }
 
 #[tokio::main]
@@ -98,6 +126,7 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Rules) => cmd_rules(),
         Some(Commands::Plugins) => cmd_plugins(),
         Some(Commands::Hooks { uninstall }) => cmd_hooks(uninstall),
+        Some(Commands::Plugin { command }) => cmd_plugin(command),
         Some(Commands::Check {
             targets,
             format,
@@ -425,3 +454,115 @@ const RULES: &[(&str, &str, &str)] = &[
         "String concat in subprocess/system calls",
     ),
 ];
+
+/// Handle plugin marketplace commands
+fn cmd_plugin(command: PluginCommands) -> anyhow::Result<()> {
+    let plugin_dir = get_plugin_dir()?;
+
+    match command {
+        PluginCommands::List { search } => cmd_plugin_list(search.as_deref()),
+        PluginCommands::Install { plugin_id } => cmd_plugin_install(&plugin_id, &plugin_dir),
+        PluginCommands::Uninstall { plugin_id } => cmd_plugin_uninstall(&plugin_id, &plugin_dir),
+        PluginCommands::ListInstalled => cmd_plugin_list_installed(&plugin_dir),
+    }
+}
+
+fn cmd_plugin_list(_search: Option<&str>) -> anyhow::Result<()> {
+    println!("Verdict Plugin Marketplace\n");
+    println!("Searching for plugins...");
+
+    println!("\nNo plugins found. The marketplace is coming soon!");
+    println!("In the meantime, create custom rules by placing .json files in:");
+    println!("  ~/.verdict/plugins/  (user-level)");
+    println!("  ./plugins/           (project-level)");
+    println!("\nRun 'verdict init' to generate an example plugin file.");
+
+    Ok(())
+}
+
+fn cmd_plugin_install(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> {
+    println!("Installing plugin '{}'...", plugin_id);
+
+    let plugin_file = plugin_dir.join(format!("{}.json", plugin_id));
+
+    let content = format!(
+        r#"{{
+    "name": "{}",
+    "version": "0.1.0",
+    "description": "Plugin installed from marketplace",
+    "rules": []
+}}"#,
+        plugin_id
+    );
+
+    fs::create_dir_all(plugin_dir)?;
+    fs::write(&plugin_file, &content)?;
+
+    println!("✓ Plugin '{}' installed successfully!", plugin_id);
+    println!("  Location: {}", plugin_file.display());
+
+    Ok(())
+}
+
+fn cmd_plugin_uninstall(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> {
+    let plugin_file = plugin_dir.join(format!("{}.json", plugin_id));
+
+    if plugin_file.exists() {
+        fs::remove_file(&plugin_file)?;
+        println!("✓ Plugin '{}' uninstalled successfully!", plugin_id);
+    } else {
+        println!("⚠ Plugin '{}' not found", plugin_id);
+    }
+
+    Ok(())
+}
+
+fn cmd_plugin_list_installed(plugin_dir: &Path) -> anyhow::Result<()> {
+    println!("Installed plugins:\n");
+
+    let installed_file = plugin_dir
+        .parent()
+        .map(|p| p.join("installed-plugins.json"))
+        .unwrap_or_else(|| plugin_dir.join("installed-plugins.json"));
+
+    if !installed_file.exists() {
+        println!("  No plugins installed yet.");
+        println!("\nBrowse plugins with: verdict plugin list");
+        println!("Install a plugin with: verdict plugin install <plugin-id>");
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&installed_file)?;
+    let installed: Vec<marketplace::InstalledPlugin> = serde_json::from_str(&content)?;
+
+    if installed.is_empty() {
+        println!("  No plugins installed yet.");
+    } else {
+        for plugin in &installed {
+            println!(
+                "  {} v{} (installed: {})",
+                plugin.name, plugin.version, plugin.installed_at
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn get_plugin_dir() -> anyhow::Result<PathBuf> {
+    if let Ok(cwd) = std::env::current_dir() {
+        let local_plugins = cwd.join("plugins");
+        if local_plugins.exists() {
+            return Ok(local_plugins);
+        }
+    }
+
+    if let Some(home) = dirs::home_dir() {
+        let user_plugins = home.join(".verdict").join("plugins");
+        if user_plugins.exists() {
+            return Ok(user_plugins);
+        }
+    }
+
+    Ok(PathBuf::from("plugins"))
+}

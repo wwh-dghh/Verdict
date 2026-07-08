@@ -158,11 +158,14 @@ $ verdict check ./src
 - [x] 终端、JSON、SARIF 输出
 - [x] LLM-as-Judge 语义审查
 - [x] `verdict init` / `verdict rules` 命令
-- [ ] Git diff 增量分析
-- [ ] WASM 插件系统
-- [ ] pre-commit 钩子集成
-- [ ] IDE 扩展（VS Code）
-- [ ] 更多语言支持（Go、Rust）
+- [x] Git diff 增量分析
+- [x] WASM 插件系统
+- [x] pre-commit 钩子集成
+- [x] IDE 扩展（VS Code）
+- [x] 更多语言支持（Go、Rust）
+- [x] GitHub Actions 集成
+- [ ] 插件市场
+- [ ] 团队协作功能
 
 ## 贡献指南
 

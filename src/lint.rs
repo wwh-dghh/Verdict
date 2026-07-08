@@ -193,9 +193,53 @@ impl LintAdapter for BiomeAdapter {
     }
 }
 
-fn parse_biome_output(_output: &[u8], _file: &Path) -> Vec<Finding> {
-    // TODO: Parse Biome JSON output format
-    Vec::new()
+fn parse_biome_output(output: &[u8], file: &Path) -> Vec<Finding> {
+    #[derive(Deserialize)]
+    struct BiomeDiagnostic {
+        #[allow(dead_code)]
+        category: Option<String>,
+        message: String,
+        code: Option<String>,
+        severity: Option<String>,
+        location: Option<BiomeLocation>,
+    }
+
+    #[derive(Deserialize)]
+    struct BiomeLocation {
+        line: Option<usize>,
+    }
+
+    #[derive(Deserialize)]
+    struct BiomeReport {
+        diagnostics: Vec<BiomeDiagnostic>,
+    }
+
+    let Some(report) = serde_json::from_slice::<BiomeReport>(output).ok() else {
+        return Vec::new();
+    };
+
+    let mut findings = Vec::new();
+    for diag in report.diagnostics {
+        let severity = match diag.severity.as_deref() {
+            Some("error") | None => Severity::Error,
+            Some("warning") => Severity::Warning,
+            _ => Severity::Info,
+        };
+
+        let line = diag.location.and_then(|l| l.line);
+        let code = diag.code.unwrap_or_else(|| "BIOME".to_string());
+
+        findings.push(Finding::new(
+            Category::Lint,
+            severity,
+            code,
+            diag.message,
+            file.to_path_buf(),
+            line,
+        ));
+    }
+
+    findings
 }
 
 // ─── Oxlint Adapter ──────────────────────────────────────────────────
@@ -222,9 +266,48 @@ impl LintAdapter for OxlintAdapter {
     }
 }
 
-fn parse_oxlint_output(_output: &[u8], _file: &Path) -> Vec<Finding> {
-    // TODO: Parse Oxlint JSON output format
-    Vec::new()
+fn parse_oxlint_output(output: &[u8], file: &Path) -> Vec<Finding> {
+    #[derive(Deserialize)]
+    struct OxlintResult {
+        line: Option<usize>,
+        #[allow(dead_code)]
+        column: Option<usize>,
+        severity: Option<String>,
+        message: String,
+        code: Option<String>,
+    }
+
+    #[derive(Deserialize)]
+    struct OxlintReport {
+        results: Vec<OxlintResult>,
+    }
+
+    let Some(report) = serde_json::from_slice::<OxlintReport>(output).ok() else {
+        return Vec::new();
+    };
+
+    let mut findings = Vec::new();
+    for diag in report.results {
+        let severity = match diag.severity.as_deref() {
+            Some("error") | None => Severity::Error,
+            Some("warning") => Severity::Warning,
+            Some("info") => Severity::Info,
+            _ => Severity::Info,
+        };
+
+        let code = diag.code.unwrap_or_else(|| "OXLLINT".to_string());
+
+        findings.push(Finding::new(
+            Category::Lint,
+            severity,
+            code,
+            diag.message,
+            file.to_path_buf(),
+            diag.line,
+        ));
+    }
+
+    findings
 }
 
 // ─── Golangci-lint Adapter ───────────────────────────────────────────

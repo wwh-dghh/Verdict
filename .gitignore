@@ -27,3 +27,10 @@ Thumbs.db
 
 # VS Code extension build artifacts
 *.vsix
+
+# Rust
+*.pdb
+*.dll
+*.so
+*.dylib
+*.exe
