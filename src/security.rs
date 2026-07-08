@@ -104,7 +104,7 @@ fn glob_match(pattern: &str, text: &str) -> bool {
 fn find_match_line(text: &str, regex: &Regex) -> Option<usize> {
     regex
         .find(text)
-        .map(|m| text[..m.start()].bytes().filter(|&b| b == b'\n').count() + 1)
+        .map(|m| text[..m.start()].chars().filter(|&c| c == '\n').count() + 1)
 }
 
 /// Built-in security rules

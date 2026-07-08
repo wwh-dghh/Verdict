@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+use tokio::process::Command as TokioCommand;
 
 /// Represents the diff source for incremental analysis
 #[allow(dead_code)] // Variants are part of the public API for future CLI flags
@@ -38,21 +39,26 @@ impl Default for DiffOptions {
 ///
 /// Returns paths relative to the repository root.
 /// Falls back gracefully if not in a git repository.
-pub fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Result<Vec<PathBuf>> {
+pub async fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Result<Vec<PathBuf>> {
     let output = match opts.source {
-        DiffSource::Staged => run_git_diff(
-            repo_root,
-            &["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-        ),
-        DiffSource::WorkingTree => {
-            run_git_diff(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"])
-        }
-        DiffSource::All => {
-            let staged = run_git_diff(
+        DiffSource::Staged => {
+            run_git_diff_async(
                 repo_root,
                 &["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-            );
-            let working = run_git_diff(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"]);
+            )
+            .await
+        }
+        DiffSource::WorkingTree => {
+            run_git_diff_async(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"]).await
+        }
+        DiffSource::All => {
+            let staged = run_git_diff_async(
+                repo_root,
+                &["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+            )
+            .await;
+            let working =
+                run_git_diff_async(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"]).await;
 
             let staged_files = staged.map_or_else(|_| Vec::new(), |o| parse_diff_output(&o));
             let working_files = working.map_or_else(|_| Vec::new(), |o| parse_diff_output(&o));
@@ -118,11 +124,52 @@ pub fn is_git_repo(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn run_git_diff(repo_root: &Path, args: &[&str]) -> Result<Vec<u8>> {
-    let output = std::process::Command::new("git")
+/// Async version of find_repo_root for use in async contexts
+pub async fn find_repo_root_async(from: &Path) -> Result<PathBuf> {
+    let output = TokioCommand::new("git")
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .current_dir(from)
+        .output()
+        .await
+        .context("failed to run git rev-parse")?;
+
+    if !output.status.success() {
+        anyhow::bail!(
+            "not a git repository (or any parent up to root): {}",
+            from.display()
+        );
+    }
+
+    let root = String::from_utf8(output.stdout)
+        .context("git rev-parse output is not valid UTF-8")?
+        .trim()
+        .to_string();
+
+    Ok(PathBuf::from(root))
+}
+
+/// Async version of is_git_repo for use in async contexts
+pub async fn is_git_repo_async(path: &Path) -> bool {
+    TokioCommand::new("git")
+        .arg("rev-parse")
+        .arg("--is-inside-work-tree")
+        .current_dir(path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Async version of run_git_diff for use in async contexts
+async fn run_git_diff_async(repo_root: &Path, args: &[&str]) -> Result<Vec<u8>> {
+    let output = TokioCommand::new("git")
         .args(args)
         .current_dir(repo_root)
         .output()
+        .await
         .context("failed to run git diff")?;
 
     if !output.status.success() {

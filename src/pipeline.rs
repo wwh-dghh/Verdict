@@ -200,14 +200,16 @@ impl Stage for PreprocessStage {
 
             for target in &self.targets {
                 let root = if target.is_dir() {
-                    crate::git_diff::find_repo_root(target).unwrap_or_else(|_| target.clone())
+                    crate::git_diff::find_repo_root_async(target)
+                        .await
+                        .unwrap_or_else(|_| target.clone())
                 } else {
                     target.parent().unwrap_or(target).to_path_buf()
                 };
 
-                if crate::git_diff::is_git_repo(&root) {
+                if crate::git_diff::is_git_repo_async(&root).await {
                     let opts = crate::git_diff::DiffOptions::default();
-                    match crate::git_diff::discover_changed_files(&root, &opts) {
+                    match crate::git_diff::discover_changed_files(&root, &opts).await {
                         Ok(files) => {
                             for f in files {
                                 let full_path = if f.is_relative() { root.join(&f) } else { f };

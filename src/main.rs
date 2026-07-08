@@ -235,8 +235,13 @@ ignore:
   - "venv"
 "#;
 
-    println!("{}", template.trim());
-    println!("\nSave this as .verdict.yaml in your project root");
+    let config_path = PathBuf::from(".verdict.yaml");
+    if config_path.exists() {
+        println!("⚠ .verdict.yaml already exists, skipping");
+    } else {
+        fs::write(&config_path, template.trim())?;
+        println!("✓ Created .verdict.yaml");
+    }
 
     // Also create plugins directory with example
     let plugins_dir = std::path::Path::new("plugins");
@@ -244,7 +249,7 @@ ignore:
         std::fs::create_dir_all(plugins_dir)?;
         let example = plugin::generate_template();
         std::fs::write(plugins_dir.join("example-rules.json"), &example)?;
-        println!("\nCreated plugins/ directory with example-rules.json");
+        println!("✓ Created plugins/ directory with example-rules.json");
         println!("Edit or add .json files to plugins/ to define custom security rules");
     }
 

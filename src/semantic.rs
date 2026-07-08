@@ -114,12 +114,22 @@ async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
 
     let text: serde_json::Value = response.json().await.ok()?;
 
-    text.get("choices")
-        .and_then(|c| c.get(0))
-        .and_then(|c| c.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(|c| c.as_str())
-        .map(String::from)
+    // Anthropic returns { "content": [{ "text": "..." }] }
+    // OpenAI returns { "choices": [{ "message": { "content": "..." } }] }
+    if is_anthropic {
+        text.get("content")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("text"))
+            .and_then(|c| c.as_str())
+            .map(String::from)
+    } else {
+        text.get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("message"))
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str())
+            .map(String::from)
+    }
 }
 
 #[cfg(test)]
