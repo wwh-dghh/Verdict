@@ -196,6 +196,8 @@ impl Stage for PreprocessStage {
         // In diff mode, only analyze files changed in git
         if self.diff_mode {
             let mut changed_files = Vec::new();
+            let mut git_failed = false;
+
             for target in &self.targets {
                 let root = if target.is_dir() {
                     crate::git_diff::find_repo_root(target).unwrap_or_else(|_| target.clone())
@@ -215,29 +217,40 @@ impl Stage for PreprocessStage {
                             }
                         }
                         Err(e) => {
-                            tracing::warn!("git diff failed, falling back to full scan: {}", e);
+                            tracing::warn!("git diff failed for {}: {}", root.display(), e);
+                            git_failed = true;
                         }
                     }
+                } else {
+                    // Not a git repo — fall back to full scan
+                    git_failed = true;
                 }
             }
 
-            for path in changed_files {
-                if let Some(lang) = Language::from_path(&path) {
-                    results.push(AnalysisResult {
-                        path,
-                        language: Some(lang),
-                        findings: Vec::new(),
-                        scores: None,
-                        duration_ms: 0,
-                    });
+            // If git diff failed, fall back to full scan for targets that are files/dirs
+            if git_failed && changed_files.is_empty() {
+                tracing::warn!("git diff failed or no git repo found, falling back to full scan");
+                // Continue to full scan path below
+            } else if !changed_files.is_empty() {
+                for path in changed_files {
+                    if let Some(lang) = Language::from_path(&path) {
+                        results.push(AnalysisResult {
+                            path,
+                            language: Some(lang),
+                            findings: Vec::new(),
+                            scores: None,
+                            duration_ms: 0,
+                        });
+                    }
                 }
-            }
 
-            tracing::info!(
-                "preprocess (diff mode): found {} changed files",
-                results.len()
-            );
-            return Ok(results);
+                tracing::info!(
+                    "preprocess (diff mode): found {} changed files",
+                    results.len()
+                );
+                return Ok(results);
+            }
+            // Fall through to full scan below if git diff failed and no files found
         }
 
         // Full scan mode
@@ -257,6 +270,7 @@ impl Stage for PreprocessStage {
                 // Walk directory, collecting supported files
                 for entry in WalkDir::new(target)
                     .min_depth(1)
+                    .follow_links(false)
                     .into_iter()
                     .filter_entry(|e| {
                         let name = e.file_name().to_string_lossy();

@@ -3,7 +3,7 @@
 use crate::models::{AnalysisResult, Category, Finding, Severity};
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 use super::pipeline::Stage;
@@ -386,6 +386,31 @@ fn parse_golangci_output(output: &[u8], file: &Path) -> Vec<Finding> {
 
 struct ClippyAdapter;
 
+impl ClippyAdapter {
+    /// Resolve the Cargo.toml directory from a file path by walking up the tree
+    fn find_cargo_root(file_path: &Path) -> PathBuf {
+        let mut current = file_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+        loop {
+            if current.join("Cargo.toml").exists() {
+                return current;
+            }
+            match current.parent() {
+                Some(parent) if parent.as_os_str().is_empty() => break,
+                Some(parent) => current = parent.to_path_buf(),
+                None => break,
+            }
+        }
+        // Fall back to the file's parent directory
+        file_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."))
+    }
+}
+
 #[async_trait::async_trait]
 impl LintAdapter for ClippyAdapter {
     fn name(&self) -> &'static str {
@@ -398,16 +423,18 @@ impl LintAdapter for ClippyAdapter {
             return Ok(Vec::new());
         }
 
+        let cargo_root = Self::find_cargo_root(path);
+
         let output = Command::new("cargo")
             .arg("clippy")
             .arg("--message-format=json")
             .arg("--")
             .arg("-W")
             .arg("clippy::all")
-            .current_dir(path.parent().unwrap_or(path))
+            .current_dir(&cargo_root)
             .output()
             .await
-            .with_context(|| "failed to run cargo clippy")?;
+            .with_context(|| format!("failed to run cargo clippy in {}", cargo_root.display()))?;
 
         let findings = parse_clippy_output(&output.stdout, path);
         Ok(findings)

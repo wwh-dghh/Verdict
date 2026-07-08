@@ -482,15 +482,14 @@ fn cmd_plugin_install(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()> 
 
     let plugin_file = plugin_dir.join(format!("{}.json", plugin_id));
 
-    let content = format!(
-        r#"{{
-    "name": "{}",
-    "version": "0.1.0",
-    "description": "Plugin installed from marketplace",
-    "rules": []
-}}"#,
-        plugin_id
-    );
+    let content = serde_json::json!({
+        "name": plugin_id,
+        "version": "0.1.0",
+        "description": "Plugin installed from marketplace",
+        "rules": []
+    });
+
+    let content = serde_json::to_string_pretty(&content)?;
 
     fs::create_dir_all(plugin_dir)?;
     fs::write(&plugin_file, &content)?;
