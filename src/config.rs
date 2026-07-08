@@ -1,6 +1,6 @@
 //! Configuration loading — reads from config file and CLI args.
 
-use crate::models::*;
+use crate::models::{Config, OutputFormat, Language};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;

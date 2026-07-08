@@ -54,14 +54,8 @@ pub fn discover_changed_files(repo_root: &Path, opts: &DiffOptions) -> Result<Ve
             );
             let working = run_git_diff(repo_root, &["diff", "--name-only", "--diff-filter=ACMR"]);
 
-            let staged_files = match staged {
-                Ok(o) => parse_diff_output(&o),
-                Err(_) => Vec::new(),
-            };
-            let working_files = match working {
-                Ok(o) => parse_diff_output(&o),
-                Err(_) => Vec::new(),
-            };
+            let staged_files = staged.map_or_else(|_| Vec::new(), |o| parse_diff_output(&o));
+            let working_files = working.map_or_else(|_| Vec::new(), |o| parse_diff_output(&o));
 
             let mut all: Vec<PathBuf> = staged_files;
             for f in working_files {
@@ -133,7 +127,7 @@ fn run_git_diff(repo_root: &Path, args: &[&str]) -> Result<Vec<u8>> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("git diff failed: {}", stderr);
+        anyhow::bail!("git diff failed: {stderr}");
     }
 
     Ok(output.stdout)
@@ -142,7 +136,7 @@ fn run_git_diff(repo_root: &Path, args: &[&str]) -> Result<Vec<u8>> {
 fn parse_diff_output(output: &[u8]) -> Vec<PathBuf> {
     let text = String::from_utf8_lossy(output);
     text.lines()
-        .map(|l| l.trim())
+        .map(str::trim)
         .filter(|l| !l.is_empty())
         .map(PathBuf::from)
         .collect()

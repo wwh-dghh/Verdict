@@ -1,6 +1,6 @@
 //! Lint adapter modules — wraps Ruff, Biome, Oxlint as subprocesses.
 
-use crate::models::*;
+use crate::models::{AnalysisResult, Finding, Severity, Category};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::Path;
@@ -78,7 +78,7 @@ impl LintStage {
 /// Trait for lint adapter implementations
 #[async_trait::async_trait]
 pub trait LintAdapter: Send + Sync {
-    fn name(&self) -> &str;
+    fn name(&self) -> &'static str;
     async fn lint_file(&self, path: &Path) -> Result<Vec<Finding>>;
 }
 
@@ -88,7 +88,7 @@ struct RuffAdapter;
 
 #[async_trait::async_trait]
 impl LintAdapter for RuffAdapter {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ruff"
     }
 
@@ -156,7 +156,7 @@ struct BiomeAdapter;
 
 #[async_trait::async_trait]
 impl LintAdapter for BiomeAdapter {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "biome"
     }
 
@@ -248,7 +248,7 @@ struct OxlintAdapter;
 
 #[async_trait::async_trait]
 impl LintAdapter for OxlintAdapter {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "oxlint"
     }
 
@@ -316,7 +316,7 @@ struct GolangciLintAdapter;
 
 #[async_trait::async_trait]
 impl LintAdapter for GolangciLintAdapter {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "golangci-lint"
     }
 
@@ -388,7 +388,7 @@ struct ClippyAdapter;
 
 #[async_trait::async_trait]
 impl LintAdapter for ClippyAdapter {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "clippy"
     }
 

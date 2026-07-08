@@ -83,8 +83,9 @@ impl MarketplaceClient {
 
     /// Install a plugin from the marketplace
     pub fn install_plugin(&self, plugin_id: &str) -> Result<()> {
-        // TODO: Fetch plugin content from marketplace
-        // For now, create a placeholder
+        fs::create_dir_all(&self.plugin_dir)
+            .with_context(|| format!("failed to create plugin dir: {}", self.plugin_dir.display()))?;
+
         let plugin_file = self.plugin_dir.join(format!("{}.json", plugin_id));
 
         let content = format!(
@@ -100,7 +101,6 @@ impl MarketplaceClient {
         fs::write(&plugin_file, &content)
             .with_context(|| format!("failed to write plugin to {}", plugin_file.display()))?;
 
-        // Record installation
         self.record_install(plugin_id)?;
 
         tracing::info!(
@@ -130,11 +130,7 @@ impl MarketplaceClient {
 
     /// List all installed plugins
     pub fn list_installed(&self) -> Result<Vec<InstalledPlugin>> {
-        let installed_file = self
-            .plugin_dir
-            .parent()
-            .map(|p| p.join("installed-plugins.json"))
-            .unwrap_or_else(|| self.plugin_dir.join("installed-plugins.json"));
+        let installed_file = self.plugin_dir.join("installed-plugins.json");
 
         if !installed_file.exists() {
             return Ok(vec![]);
@@ -146,11 +142,7 @@ impl MarketplaceClient {
     }
 
     fn record_install(&self, plugin_id: &str) -> Result<()> {
-        let installed_file = self
-            .plugin_dir
-            .parent()
-            .map(|p| p.join("installed-plugins.json"))
-            .unwrap_or_else(|| self.plugin_dir.join("installed-plugins.json"));
+        let installed_file = self.plugin_dir.join("installed-plugins.json");
 
         let mut installed: Vec<InstalledPlugin> = if installed_file.exists() {
             let content = fs::read_to_string(&installed_file)?;
@@ -159,9 +151,8 @@ impl MarketplaceClient {
             vec![]
         };
 
-        // Check if already installed
         if installed.iter().any(|p| p.id == plugin_id) {
-            return Ok(()); // Already installed
+            return Ok(());
         }
 
         let now = chrono::Utc::now().to_rfc3339();
@@ -179,11 +170,7 @@ impl MarketplaceClient {
     }
 
     fn remove_install_record(&self, plugin_id: &str) -> Result<()> {
-        let installed_file = self
-            .plugin_dir
-            .parent()
-            .map(|p| p.join("installed-plugins.json"))
-            .unwrap_or_else(|| self.plugin_dir.join("installed-plugins.json"));
+        let installed_file = self.plugin_dir.join("installed-plugins.json");
 
         if !installed_file.exists() {
             return Ok(());

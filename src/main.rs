@@ -344,17 +344,15 @@ fn cmd_hooks(uninstall: bool) -> anyhow::Result<()> {
     if hook_path.exists() {
         let content = fs::read_to_string(&hook_path)?;
         if content.contains("# verdict-precommit") {
-            // Update existing verdict hook
             fs::write(&hook_path, generate_hook_script())?;
             println!("✓ Updated verdict pre-commit hook");
             return Ok(());
-        } else {
-            anyhow::bail!(
-                "Pre-commit hook already exists at {}\n\
-                 Remove it first or use --uninstall if it was created by verdict",
-                hook_path.display()
-            );
         }
+        anyhow::bail!(
+            "Pre-commit hook already exists at {}\n\
+             Remove it first or use --uninstall if it was created by verdict",
+            hook_path.display()
+        );
     }
 
     // Create hooks directory if it doesn't exist
@@ -393,9 +391,8 @@ fn find_git_hooks_dir() -> anyhow::Result<PathBuf> {
 }
 
 fn generate_hook_script() -> String {
-    // Use raw string with proper shebang for the platform
     if cfg!(target_os = "windows") {
-        r#"@echo off
+        r"@echo off
 # verdict-precommit
 verdict check --diff --format terminal
 if %errorlevel% neq 0 (
@@ -404,8 +401,8 @@ if %errorlevel% neq 0 (
     echo To skip: git commit --no-verify
     exit /b 1
 )
-"#
-        .to_string()
+"
+            .to_string()
     } else {
         r#"#!/bin/sh
 # verdict-precommit
@@ -417,7 +414,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 "#
-        .to_string()
+            .to_string()
     }
 }
 
@@ -520,10 +517,7 @@ fn cmd_plugin_uninstall(plugin_id: &str, plugin_dir: &Path) -> anyhow::Result<()
 fn cmd_plugin_list_installed(plugin_dir: &Path) -> anyhow::Result<()> {
     println!("Installed plugins:\n");
 
-    let installed_file = plugin_dir
-        .parent()
-        .map(|p| p.join("installed-plugins.json"))
-        .unwrap_or_else(|| plugin_dir.join("installed-plugins.json"));
+    let installed_file = plugin_dir.join("installed-plugins.json");
 
     if !installed_file.exists() {
         println!("  No plugins installed yet.");
