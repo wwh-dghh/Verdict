@@ -182,23 +182,39 @@ impl LintAdapter for BiomeAdapter {
             .await;
 
         let findings = if let Ok(output) = output {
-            parse_biome_output(&output.stdout, path)
-        } else {
-            // Fallback: bun x @biomejs/biome check --files-ignore-unknown <path>
-            let output = Command::new("bun")
-                .arg("x")
-                .arg("@biomejs/biome")
-                .arg("check")
-                .arg("--files-ignore-unknown")
-                .arg(path)
-                .output()
-                .await;
-
-            if let Ok(output) = output {
+            if output.status.success() {
                 parse_biome_output(&output.stdout, path)
             } else {
-                Vec::new()
+                // Fallback: bun x @biomejs/biome
+                let output2 = Command::new("bun")
+                    .arg("x")
+                    .arg("@biomejs/biome")
+                    .arg("check")
+                    .arg("--files-ignore-unknown")
+                    .arg(path)
+                    .output()
+                    .await;
+
+                if let Ok(output2) = output2 {
+                    if output2.status.success() {
+                        parse_biome_output(&output2.stdout, path)
+                    } else {
+                        tracing::warn!(
+                            "biome check failed: {}",
+                            String::from_utf8_lossy(&output2.stderr)
+                        );
+                        Vec::new()
+                    }
+                } else {
+                    tracing::warn!(
+                        "biome check failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                    Vec::new()
+                }
             }
+        } else {
+            Vec::new()
         };
 
         Ok(findings)
@@ -478,10 +494,14 @@ fn parse_clippy_output(output: &[u8], target_file: &Path) -> Vec<Finding> {
             })
             .unwrap_or_default();
 
-        if !file_names
-            .iter()
-            .any(|f| Path::new(f).canonicalize().ok() == target_file.canonicalize().ok())
-        {
+        if !file_names.iter().any(|f| {
+            // Compare using same_file semantics with fallback to basename matching
+            // to handle cases where the file doesn't exist or canonicalize fails
+            let target_canonical = target_file.canonicalize().ok();
+            let file_canonical = Path::new(f).canonicalize().ok();
+            target_canonical == file_canonical
+                || target_file.file_name() == Path::new(f).file_name()
+        }) {
             continue;
         }
 

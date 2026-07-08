@@ -425,9 +425,11 @@ fn cmd_hooks(uninstall: bool) -> anyhow::Result<()> {
 }
 
 fn find_git_hooks_dir() -> anyhow::Result<PathBuf> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()?;
+    let output = tokio::task::block_in_place(|| {
+        std::process::Command::new("git")
+            .args(["rev-parse", "--show-toplevel"])
+            .output()
+    })?;
 
     if !output.status.success() {
         anyhow::bail!("not a git repository");
