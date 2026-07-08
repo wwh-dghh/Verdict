@@ -240,6 +240,16 @@ impl Stage for PreprocessStage {
                         })
                 };
 
+                // Validate root is a valid directory for git operations
+                if root.is_file() || !root.exists() {
+                    tracing::warn!(
+                        "diff mode: root '{}' is not a valid directory, skipping",
+                        root.display()
+                    );
+                    git_failed = true;
+                    continue;
+                }
+
                 if crate::git_diff::is_git_repo_async(&root).await {
                     let opts = crate::git_diff::DiffOptions::default();
                     match crate::git_diff::discover_changed_files(&root, &opts).await {

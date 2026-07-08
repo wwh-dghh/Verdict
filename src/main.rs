@@ -576,7 +576,7 @@ fn cmd_plugin_uninstall(
         client.uninstall_plugin(plugin_id)?;
         println!("✓ Plugin '{}' uninstalled successfully!", plugin_id);
     } else {
-        println!("⚠ Plugin '{}' not found", plugin_id);
+        anyhow::bail!("Plugin '{}' not found", plugin_id);
     }
 
     Ok(())

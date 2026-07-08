@@ -28,7 +28,7 @@ impl Stage for SemanticStage {
         for r in &mut results {
             let content = fs::read_to_string(&r.path).await.ok();
             if let Some(text) = content {
-                let snippet = text.get(..config.max_input_chars).unwrap_or(&text);
+                let snippet: String = text.chars().take(config.max_input_chars).collect();
 
                 let lang_name = r
                     .language
