@@ -44,21 +44,13 @@ impl ConfigLoader {
                 if !loaded.linters.is_empty() {
                     config.linters = loaded.linters;
                 }
-                if !loaded.security_scan {
-                    config.security_scan = false;
-                }
-                if loaded.ai_review {
-                    config.ai_review = true;
-                }
+                config.security_scan = loaded.security_scan;
+                config.ai_review = loaded.ai_review;
                 if loaded.llm.is_some() {
                     config.llm = loaded.llm;
                 }
-                if loaded.output != OutputFormat::Terminal {
-                    config.output = loaded.output;
-                }
-                if loaded.diff_mode {
-                    config.diff_mode = true;
-                }
+                config.output = loaded.output;
+                config.diff_mode = loaded.diff_mode;
                 if !loaded.ignore.is_empty() {
                     config.ignore = loaded.ignore;
                 }
