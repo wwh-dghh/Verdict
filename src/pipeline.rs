@@ -204,7 +204,12 @@ impl Stage for PreprocessStage {
                         .await
                         .unwrap_or_else(|_| target.clone())
                 } else {
-                    target.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| target.to_path_buf())
+                    // For files, try parent first; fall back to cwd if no parent
+                    target
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .filter(|p| !p.as_os_str().is_empty())
+                        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
                 };
 
                 if crate::git_diff::is_git_repo_async(&root).await {

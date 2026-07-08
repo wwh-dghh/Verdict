@@ -444,7 +444,7 @@ impl LintAdapter for ClippyAdapter {
     }
 }
 
-fn parse_clippy_output(output: &[u8], file: &Path) -> Vec<Finding> {
+fn parse_clippy_output(output: &[u8], target_file: &Path) -> Vec<Finding> {
     let text = String::from_utf8_lossy(output);
     let mut findings = Vec::new();
 
@@ -465,6 +465,25 @@ fn parse_clippy_output(output: &[u8], file: &Path) -> Vec<Finding> {
         let Some(text) = message.get("message").and_then(|m| m.as_str()) else {
             continue;
         };
+
+        // Filter: only include findings for the target file
+        let file_names: Vec<_> = message
+            .get("spans")
+            .and_then(|s| s.as_array())
+            .map(|spans| {
+                spans
+                    .iter()
+                    .filter_map(|span| span.get("file_name").and_then(|f| f.as_str()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if !file_names
+            .iter()
+            .any(|f| Path::new(f).canonicalize().ok() == target_file.canonicalize().ok())
+        {
+            continue;
+        }
 
         let code = message
             .get("code")
@@ -496,7 +515,7 @@ fn parse_clippy_output(output: &[u8], file: &Path) -> Vec<Finding> {
             severity,
             code.to_string(),
             text.to_string(),
-            file.to_path_buf(),
+            target_file.to_path_buf(),
             line_num,
         ));
     }
