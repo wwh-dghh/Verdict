@@ -316,7 +316,7 @@ impl Stage for AggregateStage {
             let errors = r
                 .findings
                 .iter()
-                .filter(|f| f.severity == Severity::Error)
+                .filter(|f| f.is_error())
                 .count() as f64;
             let warnings = r
                 .findings

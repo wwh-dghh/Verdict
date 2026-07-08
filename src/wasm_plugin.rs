@@ -8,6 +8,7 @@ use std::path::Path;
 
 /// A WASM plugin that provides custom security rules
 pub struct WasmPlugin {
+    #[allow(dead_code)] // needed when instantiating modules for rule execution
     engine: wasmtime::Engine,
     #[allow(dead_code)] // kept for upcoming rule invocation
     module: wasmtime::Module,
@@ -98,6 +99,12 @@ impl WasmPluginLoader {
     /// Return the configured plugin directories (read-only)
     pub fn plugin_dirs(&self) -> &[std::path::PathBuf] {
         &self.plugin_dirs
+    }
+
+    /// Create a WASM plugin loader with specific directories
+    #[allow(dead_code)] // public constructor for embedders and tests
+    pub fn with_dirs(dirs: Vec<std::path::PathBuf>) -> Self {
+        Self { plugin_dirs: dirs }
     }
 
     /// Load all WASM plugins from configured directories
@@ -191,5 +198,12 @@ mod tests {
     fn test_wasm_plugin_from_file_not_found() {
         let result = WasmPlugin::from_file(Path::new("/nonexistent.wasm"));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_with_dirs() {
+        let dirs = vec![PathBuf::from("/tmp/wasm-plugins")];
+        let loader = WasmPluginLoader::with_dirs(dirs.clone());
+        assert_eq!(loader.plugin_dirs(), &dirs[..]);
     }
 }

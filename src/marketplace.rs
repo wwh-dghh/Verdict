@@ -137,8 +137,19 @@ impl MarketplaceClient {
             return Ok(vec![]);
         }
 
-        let content = fs::read_to_string(&installed_file)?;
-        let installed: Vec<InstalledPlugin> = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(&installed_file).with_context(|| {
+            format!(
+                "failed to read installed plugins file: {}",
+                installed_file.display()
+            )
+        })?;
+        let installed: Vec<InstalledPlugin> =
+            serde_json::from_str(&content).with_context(|| {
+                format!(
+                    "failed to parse installed plugins file: {}",
+                    installed_file.display()
+                )
+            })?;
         Ok(installed)
     }
 
@@ -146,8 +157,18 @@ impl MarketplaceClient {
         let installed_file = self.plugin_dir.join("installed-plugins.json");
 
         let mut installed: Vec<InstalledPlugin> = if installed_file.exists() {
-            let content = fs::read_to_string(&installed_file)?;
-            serde_json::from_str(&content)?
+            let content = fs::read_to_string(&installed_file).with_context(|| {
+                format!(
+                    "failed to read installed plugins file: {}",
+                    installed_file.display()
+                )
+            })?;
+            serde_json::from_str(&content).with_context(|| {
+                format!(
+                    "failed to parse installed plugins file: {}",
+                    installed_file.display()
+                )
+            })?
         } else {
             vec![]
         };
@@ -165,7 +186,12 @@ impl MarketplaceClient {
         });
 
         let content = serde_json::to_string_pretty(&installed)?;
-        fs::write(&installed_file, content)?;
+        fs::write(&installed_file, content).with_context(|| {
+            format!(
+                "failed to write installed plugins file: {}",
+                installed_file.display()
+            )
+        })?;
 
         Ok(())
     }
@@ -177,12 +203,28 @@ impl MarketplaceClient {
             return Ok(());
         }
 
-        let content = fs::read_to_string(&installed_file)?;
-        let mut installed: Vec<InstalledPlugin> = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(&installed_file).with_context(|| {
+            format!(
+                "failed to read installed plugins file: {}",
+                installed_file.display()
+            )
+        })?;
+        let mut installed: Vec<InstalledPlugin> =
+            serde_json::from_str(&content).with_context(|| {
+                format!(
+                    "failed to parse installed plugins file: {}",
+                    installed_file.display()
+                )
+            })?;
         installed.retain(|p| p.id != plugin_id);
 
         let content = serde_json::to_string_pretty(&installed)?;
-        fs::write(&installed_file, content)?;
+        fs::write(&installed_file, content).with_context(|| {
+            format!(
+                "failed to write installed plugins file: {}",
+                installed_file.display()
+            )
+        })?;
 
         Ok(())
     }

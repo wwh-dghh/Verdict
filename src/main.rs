@@ -190,7 +190,7 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
         .results
         .iter()
         .flat_map(|r| &r.findings)
-        .any(|f| f.severity == models::Severity::Error);
+        .any(|f| f.is_error());
 
     if has_errors {
         println!("\n✗ Analysis failed — fix errors before committing.");
@@ -526,7 +526,14 @@ fn cmd_plugin_list_installed(plugin_dir: &Path) -> anyhow::Result<()> {
     }
 
     let content = fs::read_to_string(&installed_file)?;
-    let installed: Vec<marketplace::InstalledPlugin> = serde_json::from_str(&content)?;
+    let installed: Vec<marketplace::InstalledPlugin> = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!("failed to parse installed-plugins.json: {}", e);
+            println!("  (corrupted plugin registry, skipping)");
+            return Ok(());
+        }
+    };
 
     if installed.is_empty() {
         println!("  No plugins installed yet.");

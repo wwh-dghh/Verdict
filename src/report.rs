@@ -50,7 +50,7 @@ impl Reporter {
             .results
             .iter()
             .flat_map(|r| &r.findings)
-            .filter(|f| f.severity == Severity::Error)
+            .filter(|f| f.is_error())
             .count();
         let warnings = result
             .results

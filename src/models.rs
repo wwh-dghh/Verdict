@@ -159,6 +159,17 @@ impl Finding {
             ai_explanation: None,
         }
     }
+
+    /// Returns true if this finding is a security vulnerability
+    #[allow(dead_code)] // public API for external consumers
+    pub fn is_security(&self) -> bool {
+        matches!(self.category, Category::Security)
+    }
+
+    /// Returns true if this finding has error severity
+    pub fn is_error(&self) -> bool {
+        self.severity == Severity::Error
+    }
 }
 
 /// Multi-dimensional quality scores for analyzed code
@@ -489,5 +500,51 @@ mod tests {
         assert_eq!(Severity::Error.display_name(), "Error");
         assert_eq!(Severity::Warning.display_name(), "Warning");
         assert_eq!(Severity::Info.display_name(), "Info");
+    }
+
+    #[test]
+    fn test_finding_is_security() {
+        let sec_finding = Finding::new(
+            Category::Security,
+            Severity::Error,
+            "SEC001",
+            "SQL injection",
+            PathBuf::from("test.py"),
+            Some(1),
+        );
+        assert!(sec_finding.is_security());
+
+        let lint_finding = Finding::new(
+            Category::Lint,
+            Severity::Warning,
+            "W001",
+            "unused var",
+            PathBuf::from("test.rs"),
+            Some(5),
+        );
+        assert!(!lint_finding.is_security());
+    }
+
+    #[test]
+    fn test_finding_is_error() {
+        let error_finding = Finding::new(
+            Category::Security,
+            Severity::Error,
+            "SEC001",
+            "SQL injection",
+            PathBuf::from("test.py"),
+            Some(1),
+        );
+        assert!(error_finding.is_error());
+
+        let warning_finding = Finding::new(
+            Category::Lint,
+            Severity::Warning,
+            "W001",
+            "unused var",
+            PathBuf::from("test.rs"),
+            Some(5),
+        );
+        assert!(!warning_finding.is_error());
     }
 }
