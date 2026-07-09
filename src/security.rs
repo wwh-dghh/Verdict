@@ -187,6 +187,20 @@ fn builtin_rules() -> Vec<SecurityPattern> {
             "Potential command injection: string concatenation",
             Some("Use parameterized APIs or whitelist inputs"),
         ),
+        SecurityPattern::new(
+            r"(?i)(?:\.\./|\\\.\.|%2e%2e)",
+            Severity::Error,
+            "SEC008",
+            "Potential path traversal vulnerability",
+            Some("Validate and sanitize user-provided paths"),
+        ),
+        SecurityPattern::new(
+            r"(?i)(?:http[s]?://|ftp://).*\$\w+",
+            Severity::Error,
+            "SEC009",
+            "Potential SSRF: dynamic URL construction",
+            Some("Validate URLs against an allowlist"),
+        ),
     ];
 
     patterns.into_iter().filter_map(|p| p.ok()).collect()
@@ -461,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_builtin_rules_count() {
-        assert_eq!(builtin_rules().len(), 11);
+        assert_eq!(builtin_rules().len(), 13);
     }
 
     #[test]

@@ -502,6 +502,8 @@ const RULES: &[(&str, &str, &str)] = &[
         "Command injection",
         "String concat in subprocess/system calls",
     ),
+    ("SEC008", "Path traversal", ".. or %2e%2e patterns"),
+    ("SEC009", "SSRF", "Dynamic URL construction"),
 ];
 
 /// Handle plugin marketplace commands

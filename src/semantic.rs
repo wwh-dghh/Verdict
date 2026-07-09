@@ -75,10 +75,16 @@ impl SemanticStage {
 }
 
 async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
-        .ok()?;
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("failed to create HTTP client for LLM call: {}", e);
+            return None;
+        }
+    };
 
     let is_anthropic = config.provider == "anthropic";
     let url = if is_anthropic {
@@ -107,30 +113,43 @@ async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
             .json(&body);
     }
 
-    let response = builder.send().await.ok()?;
+    let response = match builder.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("LLM API request failed: {}", e);
+            return None;
+        }
+    };
 
     if !response.status().is_success() {
-        tracing::warn!("LLM API error: {}", response.status());
+        let status = response.status();
+        let body = match response.text().await {
+            Ok(b) => format!(" ({})", b),
+            Err(_) => String::new(),
+        };
+        tracing::warn!("LLM API error: {}{}", status, body);
         return None;
     }
 
-    let text: serde_json::Value = response.json().await.ok()?;
+    let text: serde_json::Value = match response.json().await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("failed to parse LLM API response: {}", e);
+            return None;
+        }
+    };
 
     // Anthropic returns { "content": [{ "text": "..." }] }
     // OpenAI returns { "choices": [{ "message": { "content": "..." } }] }
     if is_anthropic {
-        text.get("content")
-            .and_then(|c| c.get(0))
-            .and_then(|c| c.get("text"))
-            .and_then(|c| c.as_str())
-            .map(String::from)
+        let content = text.get("content").and_then(|c| c.as_array()).and_then(|c| c.first());
+        let text = content.and_then(|c| c.get("text")).and_then(|c| c.as_str());
+        text.map(String::from)
     } else {
-        text.get("choices")
-            .and_then(|c| c.get(0))
-            .and_then(|c| c.get("message"))
-            .and_then(|m| m.get("content"))
-            .and_then(|c| c.as_str())
-            .map(String::from)
+        let choice = text.get("choices").and_then(|c| c.as_array()).and_then(|c| c.first());
+        let message = choice.and_then(|c| c.get("message"));
+        let content = message.and_then(|m| m.get("content")).and_then(|c| c.as_str());
+        content.map(String::from)
     }
 }
 

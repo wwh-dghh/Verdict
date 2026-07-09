@@ -403,26 +403,22 @@ struct ClippyAdapter;
 impl ClippyAdapter {
     /// Resolve the Cargo.toml directory from a file path by walking up the tree
     fn find_cargo_root(file_path: &Path) -> PathBuf {
-        let mut current = file_path
+        let start = file_path
             .parent()
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."));
-        for _ in 0..50 {
-            if current.as_os_str().is_empty() {
+
+        for dir in std::iter::successors(Some(start.as_path()), |p| p.parent()) {
+            if dir.join("Cargo.toml").exists() {
+                return dir.to_path_buf();
+            }
+            if dir.as_os_str().is_empty() || dir.parent() == Some(dir) {
                 break;
             }
-            if current.join("Cargo.toml").exists() {
-                return current;
-            }
-            match current.parent() {
-                Some(parent) if parent.as_os_str().is_empty() => break,
-                Some(parent) => current = parent.to_path_buf(),
-                None => break,
-            }
         }
-        // Iteration limit reached — log a warning and fall back
+
         tracing::warn!(
-            "could not find Cargo.toml within 50 ancestor directories of {}; \
+            "could not find Cargo.toml in ancestor directories of {}; \
              falling back to parent directory",
             file_path.display()
         );
