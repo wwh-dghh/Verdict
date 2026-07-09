@@ -183,10 +183,12 @@ impl LintAdapter for BiomeAdapter {
             .await;
 
         let findings = if let Ok(output) = output {
-            if output.status.success() {
-                parse_biome_output(&output.stdout, path)
+            // biome emits JSON to stdout even on non-zero exit, so always try to parse first
+            let parsed = parse_biome_output(&output.stdout, path);
+            if !parsed.is_empty() || output.status.success() {
+                parsed
             } else {
-                // Fallback: bun x @biomejs/biome
+                // biome produced no findings and exited non-zero — try bun fallback
                 let output2 = Command::new("bun")
                     .arg("x")
                     .arg("@biomejs/biome")

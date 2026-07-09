@@ -23,13 +23,9 @@ async-trait = "0.1"
 
 # File system & paths
 walkdir = "2.5"
-ignore = "0.4"
-pathdiff = "0.2"
 
 # Terminal output
 colored = "3.0"
-indicatif = "0.17"
-console = "0.15"
 
 # Logging
 tracing = "0.1"
@@ -46,7 +42,6 @@ regex = "1.11"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Error handling
-thiserror = "2.0"
 anyhow = "1.0"
 
 # Config
