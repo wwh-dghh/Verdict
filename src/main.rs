@@ -284,7 +284,7 @@ ignore:
     let plugins_dir = std::path::Path::new("plugins");
     if !plugins_dir.exists() {
         std::fs::create_dir_all(plugins_dir)?;
-        let example = plugin::generate_template();
+        let example = plugin::generate_template()?;
         std::fs::write(plugins_dir.join("example-rules.json"), &example)?;
         println!("✓ Created plugins/ directory with example-rules.json");
         println!("Edit or add .json files to plugins/ to define custom security rules");

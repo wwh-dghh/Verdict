@@ -164,6 +164,8 @@ async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{AnalysisResult, Language};
+    use std::path::PathBuf;
 
     #[test]
     fn test_llm_config_struct_exists() {
@@ -176,5 +178,69 @@ mod tests {
         };
         assert_eq!(config.provider, "openai");
         assert_eq!(config.max_tokens, 500);
+    }
+
+    #[tokio::test]
+    async fn test_semantic_stage_no_config() {
+        let stage = SemanticStage::new(None);
+        let input = vec![AnalysisResult {
+            path: PathBuf::from("test.py"),
+            language: Some(Language::Python),
+            findings: vec![],
+            scores: None,
+            duration_ms: 0,
+        }];
+        let result = stage.execute(&input).await.unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].findings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_semantic_stage_with_config_skips_non_existent_file() {
+        let config = LLMConfig {
+            provider: "openai".to_string(),
+            api_key: "test-key".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            max_tokens: 500,
+            max_input_chars: 4000,
+        };
+        let stage = SemanticStage::new(Some(config));
+        let input = vec![AnalysisResult {
+            path: PathBuf::from("/nonexistent/file.py"),
+            language: Some(Language::Python),
+            findings: vec![],
+            scores: None,
+            duration_ms: 0,
+        }];
+        let result = stage.execute(&input).await.unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].findings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_semantic_stage_with_config_sends_request() {
+        let config = LLMConfig {
+            provider: "openai".to_string(),
+            api_key: "invalid-key".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            max_tokens: 500,
+            max_input_chars: 4000,
+        };
+        let stage = SemanticStage::new(Some(config));
+        let input = vec![AnalysisResult {
+            path: PathBuf::from("/nonexistent/file.py"),
+            language: Some(Language::Python),
+            findings: vec![],
+            scores: None,
+            duration_ms: 0,
+        }];
+        let result = stage.execute(&input).await.unwrap();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_semantic_stage_name() {
+        let stage = SemanticStage::new(None);
+        assert_eq!(stage.name(), "semantic");
     }
 }

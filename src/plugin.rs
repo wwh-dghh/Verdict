@@ -186,7 +186,7 @@ fn load_plugin_file(path: &Path) -> Result<PluginFile> {
 }
 
 /// Generate a template plugin file
-pub fn generate_template() -> String {
+pub fn generate_template() -> Result<String> {
     let template = PluginFile {
         name: "my-custom-rules".to_string(),
         version: "0.1.0".to_string(),
@@ -217,7 +217,7 @@ pub fn generate_template() -> String {
         ],
     };
 
-    serde_json::to_string_pretty(&template).unwrap_or_default()
+    serde_json::to_string_pretty(&template).context("failed to generate plugin template")
 }
 
 #[cfg(test)]
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_generate_template_is_valid_json() {
-        let template = generate_template();
+        let template = generate_template().unwrap();
         let parsed: Result<PluginFile, _> = serde_json::from_str(&template);
         assert!(parsed.is_ok());
         let plugin = parsed.unwrap();
