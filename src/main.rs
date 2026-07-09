@@ -233,7 +233,7 @@ async fn cmd_check(config: &models::Config) -> anyhow::Result<()> {
 
 fn cmd_init() -> anyhow::Result<()> {
     let template = r#"# Verdict — AI Code Verification Tool
-# https://github.com/verdict-tool/verdict
+# https://github.com/wwh-dghh/verdict
 
 # Targets to analyze (default: current directory)
 # targets: ["./src"]

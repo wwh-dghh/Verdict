@@ -42,9 +42,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Security patterns
 regex = "1.11"
 
-# Cache
-moka = { version = "0.12", features = ["future"] }
-
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 
@@ -62,8 +59,8 @@ which = "6.0"
 wasmtime = { version = "24", features = ["component-model"] }
 wit-bindgen = "0.30"
 wasmtime-wasi = "24"
-tempfile = "3.14"
 
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.1"
+tempfile = "3.14"

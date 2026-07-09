@@ -142,13 +142,21 @@ async fn call_llm(config: &LLMConfig, prompt: &str) -> Option<String> {
     // Anthropic returns { "content": [{ "text": "..." }] }
     // OpenAI returns { "choices": [{ "message": { "content": "..." } }] }
     if is_anthropic {
-        let content = text.get("content").and_then(|c| c.as_array()).and_then(|c| c.first());
+        let content = text
+            .get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|c| c.first());
         let text = content.and_then(|c| c.get("text")).and_then(|c| c.as_str());
         text.map(String::from)
     } else {
-        let choice = text.get("choices").and_then(|c| c.as_array()).and_then(|c| c.first());
+        let choice = text
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|c| c.first());
         let message = choice.and_then(|c| c.get("message"));
-        let content = message.and_then(|m| m.get("content")).and_then(|c| c.as_str());
+        let content = message
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str());
         content.map(String::from)
     }
 }
